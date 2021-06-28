@@ -79,6 +79,7 @@
          capabilities/2,
          start/2,
          stop/1,
+         head/3,
          get/3,
          put/5,
          delete/4,
@@ -231,6 +232,22 @@ start_backend(Name, Module, Partition, Config) ->
 stop(#state{backends=Backends}) ->
     _ = [Module:stop(SubState) || {_, Module, SubState} <- Backends],
     ok.
+
+%% @doc Do everything get/3 does, without actually fetching the object
+-spec head(riak_object:bucket(), riak_object:key(), state()) ->
+          {ok, any(), state()} |
+          {ok, not_found, state()} |
+          {error, term(), state()}.
+head(Bucket, Key, State) ->
+    {Name, Mod, SubState} = get_backend(Bucket, State),
+    case Mod:head(Bucket, Key, SubState) of
+        {ok, Value, NewSubState} ->
+            NewState = update_backend_state(Name, Mod, NewSubState, State),
+            {ok, Value, NewState};
+        {error, Reason, NewSubState} ->
+            NewState = update_backend_state(Name, Mod, NewSubState, State),
+            {error, Reason, NewState}
+    end.
 
 %% @doc Retrieve an object from the backend
 -spec get(riak_object:bucket(), riak_object:key(), state()) ->
