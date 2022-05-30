@@ -1,6 +1,6 @@
 # Riak CS 3.0.0 Release Notes
 
-Released January 11, 2022.
+Released May 30, 2022.
 
 ## General
 
@@ -17,35 +17,43 @@ convenient way to set up the full Riak CS suite locally.
 All principal repositories are in [TI Tokyo
 org](https://github.com/TI-Tokyo) on Github.
 
+This release was [presented](https://youtu.be/CmmeYza5HPg) at Code
+BEAM America 2021.
+
 ## New features
 
-* Support for [object
- versions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html),
+* Support for **[object
+ versions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html)**,
  including new S3 API calls:
-  - [`GetBucketVersioning`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketVersioning.html)
-     and
-    [`PutBucketVersioning`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html);
-  - [`ListObjectVersions`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectVersions.html).
-  - For buckets with versioning enabled, `GetObject` will return the
-    specific version if it is given in the request, or the `null`
-    version if it is not.
-  - As a Riak CS extension, rather than generating a random id for the
-    new version, `PutObject` will read a `versionId` from header
-    `x-rcs-versionid`, and use that instead.
+  - [`GetBucketVersioning`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketVersioning.html),
+    [`PutBucketVersioning`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html) and
+    [`ListObjectVersions`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectVersions.html).
+    - For buckets with versioning enabled, `GetObject` will return the
+      specific version if it is given in the request, or the `null`
+      version if it is not.
+    - As a Riak CS extension, rather than generating a random id for the
+      new version, `PutObject` will read a `versionId` from header
+      `x-rcs-versionid`, and use that instead.
 * Riak CS Suite as a [Docker
   service](https://github.com/TI-Tokyo/riak_cs_service_bundle),
   allowing the (prospective) users quickly to bring up a fully functional Riak
   CS cluster running locally, complete with Riak CS Control, and
   - properly configured and set up with a new user, whose credentials
     will be shown;
-  - with riak data persisted.
+  - with riak data persisted;
+  - ready for a [load-test](https://github.com/TI-Tokyo/s3-benchmark).
 * Packaging:
-  - New packages are provided for FreeBSD 13 and OSX 14 (in the latter
+  - **New packages** are provided for FreeBSD 13 and OSX 14 (in the latter
     case, the package is the result of `make rel` tarred; no special
     user is created).
-  - Packages have been verified for Centos 7 and 8, Debian 8 and 11,
-    FreeBSD 13 and OSX 14.
-* `riak-cs-admin` has got a new option, `test`, which creates a bucket
+  - Packages have been verified for:
+    o RPM-based: Centos 7 and 8, Amazon Linux 2, SLES 15, Oracle
+      Linux 8;
+    o DEB-based: Debian 8 and 11, Ubuntu Bionic and Xenial;
+    o Other: FreeBSD 13, OSX 14; Alpine Linux 3.15.
+* A **Dockerfile**, bypassing cuttlefish mechanism to enable run-time
+  configuration via environment variables.
+* `riak-cs-admin` now has a new option, **`test`**, which creates a bucket
   and performs a basic write-read-delete cycle in it (useful to test
   that the riak cluster is configured properly for use with Riak CS).
 
@@ -58,9 +66,8 @@ org](https://github.com/TI-Tokyo) on Github.
 * A change of internal structures needed to support object versions,
   meaning downgrade to 2.x is no longer possible (even if the objects
   created with 3.0 have no versions). Upgrade from 2.x is possible.
-* Packaging:
-  - The rpm and deb packages now rely on systemd (old-style SysV init
-    scripts are no longer included).
+* The rpm and deb packages now rely on systemd (old-style SysV init
+  scripts are no longer included).
 
 ### Other changes
 
@@ -75,9 +82,9 @@ org](https://github.com/TI-Tokyo) on Github.
 * A refactoring of code shared between Riak CS and stanchion resulted
   in that code being collected into a separate dependency,
   [rcs_common](https://github.com/TI-Tokyo/rcs_common).
-* Riak CS Control application has been upgraded to OTP-22/rebar3, too,
-  however without any new features.
-* All dependencies upgraded to their current versions.
+* [Riak CS Control](https://github.com/TI-Tokyo/riak_cs_control)
+  application has been upgraded to OTP-22/rebar3, too, however without
+  any new features.
 * All EQC tests have been converted to use PropEr (no shortcuts taken,
   all coverage is preserved).
 
@@ -112,7 +119,7 @@ Riak CS 2.1 is designed to work with Riak KV 2.1.1+.
 
 During the update to 2.1.2, a '==' omitted upload ID might be passed to a Riak CS node running an older version of CS. This may lead to process-crash by failing on decoding upload ID.
 
-##Changes
+## Changes
 * For s3cmd users, experimental signature_v4 support has been made available through a simple on/off toggle in riak-cs.conf. With a default setting of "off", it allows in-situ upgrades without the need to change s3cfg files until after all nodes have been upgraded. Note: this function is currently unfinished and suffers from compatibility issues with some clients ([#1058](https://github.com/basho/riak_cs/issues/1058) / [#1060](https://github.com/basho/riak_cs/issues/1060)) and one potential security issue ([#1059](https://github.com/basho/riak_cs/issues/1059)
 * Experimental support for Leveled (the alternative to LevelDB to be released with Riak KV 2.9) has been successfully tested with the Riak KV 2.9.0 Release Candidates.
 * Due to a recent [Product Advisory](http://docs.basho.com/riak/latest/community/product-advisories/codeinjectioninitfiles/), node_package was bumped to version 3.0.0 to prevent a potential code injection on the riak init file. [[Issue 1297](https://github.com/basho/riak_cs/issues/1297), [PR 1306](https://github.com/basho/riak_cs/pull/1306), & [PR 109](https://github.com/basho/stanchion/pull/109)]
