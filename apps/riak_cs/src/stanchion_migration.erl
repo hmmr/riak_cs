@@ -59,11 +59,24 @@ validate_stanchion() ->
             adopt_stanchion()
     end.
 
+adopt_stanchion() ->
+    case riak_cs_config:stanchion_hosting_mode() of
+        auto ->
+            Addr = select_addr_for_stanchion(),
+            {ok, {_IP, Port}} = application:get_env(riak_cs, stanchion_listener),
+            start_stanchion_here(),
+            ok = save_stanchion_data({Addr, Port}),
+            apply_stanchion_details({Addr, Port}),
+            ok;
+        M ->
+            logger:error("Riak CS stanchion_hosting_mode is ~s. Cannot adopt stanchion.", [M]),
+            {error, stanchion_not_relocatable}
+    end.
+
 this_host_addresses() ->
     {ok, Ifs} = inet:getifaddrs(),
     lists:filtermap(
       fun({_If, PL}) ->
-              logger:debug("checking iface ~s: ~p", [_If, PL]),
               case proplists:get_value(addr, PL) of
                   AA when AA /= undefined,
                           AA /= {0,0,0,0},
@@ -82,6 +95,7 @@ select_addr_for_stanchion() ->
     {ok, {M1, M2, M3, M4}} = inet:parse_address(Mask),
     case lists:filtermap(
            fun({_If, IfOpts}) ->
+                   logger:debug("checking iface ~s: ~p", [_If, IfOpts]),
                    case extract_addr(IfOpts) of
                        {127, 0, 0, 1} ->
                            false;
@@ -115,21 +129,6 @@ extract_addr(IfItem) ->
             {127,0,0,1}
     end.
 
-
--spec adopt_stanchion() -> ok | {error, stanchion_not_relocatable}.
-adopt_stanchion() ->
-    case riak_cs_config:stanchion_hosting_mode() of
-        auto ->
-            Addr = select_addr_for_stanchion(),
-            {ok, {_IP, Port}} = application:get_env(riak_cs, stanchion_listener),
-            start_stanchion_here(),
-            ok = save_stanchion_data({Addr, Port}),
-            apply_stanchion_details({Addr, Port}),
-            ok;
-        M ->
-            logger:error("Riak CS stanchion_hosting_mode is ~s. Cannot adopt stanchion.", [M]),
-            {error, stanchion_not_relocatable}
-    end.
 
 start_stanchion_here() ->
     case supervisor:which_children(stanchion_sup) of
