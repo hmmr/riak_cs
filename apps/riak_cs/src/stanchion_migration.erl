@@ -63,11 +63,13 @@ this_host_addresses() ->
     {ok, Ifs} = inet:getifaddrs(),
     lists:filtermap(
       fun({_If, PL}) ->
+              logger:debug("checking iface ~s: ~p", [_If, PL]),
               case proplists:get_value(addr, PL) of
                   AA when AA /= undefined,
                           AA /= {0,0,0,0},
                           size(AA) == 4 ->
                       {A1, A2, A3, A4} = AA,
+                      logger:debug("will suggest ~s", [_If]),
                       {true, lists:flatten(io_lib:format("~b.~b.~b.~b", [A1, A2, A3, A4]))};
                   _ ->
                       false
