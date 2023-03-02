@@ -78,12 +78,13 @@ select_addr_for_stanchion() ->
     {Subnet_, Mask_} = riak_cs_config:stanchion_subnet_and_netmask(),
     {ok, Subnet} = inet:parse_address(Subnet_),
     {ok, Mask} = inet:parse_address(Mask_),
+    logger:debug("Stanchion subnet/mask: ~p/~p", [Subnet, Mask]),
     case netutils:get_local_ip_from_subnet({Subnet, Mask}) of
         {ok, {A1, A2, A3, A4}} ->
             lists:flatten(io_lib:format("~b.~b.~b.~b", [A1, A2, A3, A4]));
         undefined ->
             logger:warning("No network interfaces with assigned addresses matching ~s:"
-                           " falling back to 127.0.0.1", [Mask]),
+                           " falling back to 127.0.0.1", [Mask_]),
             "127.0.0.1"
     end.
 
