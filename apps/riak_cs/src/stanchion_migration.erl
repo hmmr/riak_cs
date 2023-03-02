@@ -59,6 +59,34 @@ validate_stanchion() ->
             adopt_stanchion()
     end.
 
+this_host_addresses() ->
+    {ok, Ifs} = inet:getifaddrs(),
+    lists:filtermap(
+      fun({_If, PL}) ->
+              case proplists:get_value(addr, PL) of
+                  AA when AA /= undefined,
+                          AA /= {0,0,0,0},
+                          size(AA) == 4 ->
+                      {A1, A2, A3, A4} = AA,
+                      {true, lists:flatten(io_lib:format("~b.~b.~b.~b", [A1, A2, A3, A4]))};
+                  _ ->
+                      false
+              end
+      end, Ifs).
+
+select_addr_for_stanchion() ->
+    {Subnet_, Mask_} = riak_cs_config:stanchion_subnet_and_netmask(),
+    {ok, Subnet} = inet:parse_address(Subnet_),
+    {ok, Mask} = inet:parse_address(Mask_),
+    case netutils:get_local_ip_from_subnet({Subnet, Mask}) of
+        {ok, {A1, A2, A3, A4}} ->
+            lists:flatten(io_lib:format("~b.~b.~b.~b", [A1, A2, A3, A4]));
+        undefined ->
+            logger:warning("No network interfaces with assigned addresses matching ~s:"
+                           " falling back to 127.0.0.1", [Mask]),
+            "127.0.0.1"
+    end.
+
 adopt_stanchion() ->
     case riak_cs_config:stanchion_hosting_mode() of
         auto ->
@@ -72,63 +100,6 @@ adopt_stanchion() ->
             logger:error("Riak CS stanchion_hosting_mode is ~s. Cannot adopt stanchion.", [M]),
             {error, stanchion_not_relocatable}
     end.
-
-this_host_addresses() ->
-    {ok, Ifs} = inet:getifaddrs(),
-    lists:filtermap(
-      fun({_If, PL}) ->
-              case proplists:get_value(addr, PL) of
-                  AA when AA /= undefined,
-                          AA /= {0,0,0,0},
-                          size(AA) == 4 ->
-                      {A1, A2, A3, A4} = AA,
-                      logger:debug("will suggest ~s", [_If]),
-                      {true, lists:flatten(io_lib:format("~b.~b.~b.~b", [A1, A2, A3, A4]))};
-                  _ ->
-                      false
-              end
-      end, Ifs).
-
-select_addr_for_stanchion() ->
-    {ok, Ifs} = inet:getifaddrs(),
-    Mask = riak_cs_config:stanchion_netmask(),
-    {ok, {M1, M2, M3, M4}} = inet:parse_address(Mask),
-    case lists:filtermap(
-           fun({_If, IfOpts}) ->
-                   logger:debug("checking iface ~s: ~p", [_If, IfOpts]),
-                   case extract_addr(IfOpts) of
-                       {127, 0, 0, 1} ->
-                           false;
-                       {A1, A2, A3, A4} = Addr ->
-                           if (M1 band A1) > 0 andalso
-                              (M2 band A2) > 0 andalso
-                              (M3 band A3) > 0 andalso
-                              (M4 band A4) > 0 ->
-                                   {true, Addr};
-                              el/=se ->
-                                   false
-                           end
-                   end
-           end,
-           Ifs) of
-        [{A1, A2, A3, A4}|_] ->
-            lists:flatten(io_lib:format("~b.~b.~b.~b", [A1, A2, A3, A4]));
-        [] ->
-            logger:warning("No network interfaces with assigned addresses matching ~s:"
-                           " falling back to 127.0.0.1", [Mask]),
-            "127.0.0.1"
-    end.
-
-extract_addr(IfItem) ->
-    case proplists:get_value(addr, IfItem) of
-        AA when AA /= undefined,
-                AA /= {0,0,0,0},
-                size(AA) == 4 ->
-            AA;
-        _ ->
-            {127,0,0,1}
-    end.
-
 
 start_stanchion_here() ->
     case supervisor:which_children(stanchion_sup) of
