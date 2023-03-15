@@ -44,7 +44,7 @@ or feature set otherwise.
     (default is `auto`).
 
   - `tussle_voss_riak_host` ("voss" stands for "VOlatile, Storage,
-    Serialized"), which can set to be `auto` or a fqdn:port at which
+    Serialized"), which can be set to `auto` or a fqdn:port at which
     riak_cs will store Stanchion details. A value of `auto` is
     equivalent to setting it to `riak_host`. The purpose of this
     parameter is to enable users operating in suboptimal networking
