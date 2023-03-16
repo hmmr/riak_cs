@@ -458,6 +458,40 @@
      (_) -> false
   end}.
 
+%% == SAML support ==
+
+{mapping, "saml.enabled", "riak_cs.saml_enabled", [
+  {default, off},
+  {datatype, flag}
+]}.
+
+{mapping, "saml.idp_host", "riak_cs.saml_idp_host", [
+  {commented, "samltest.id"},
+  {commented, "okta.com"},
+  {datatype, string}
+]}.
+
+{mapping, "saml.idp_metadata_url", "riak_cs.saml_idp_metadata_url", [
+  {commented, "https://samltest.id/metadata"},
+  {datatype, string}
+]}.
+
+{mapping, "saml.sp_private_key", "riak_cs.saml_sp_privkey", [
+  {datatype, file}
+]}.
+
+{mapping, "saml.sp_cerificate", "riak_cs.saml_sp_cert", [
+  {datatype, file}
+]}.
+
+%% @doc A string containing fingerprints, space-separated.
+{mapping, "saml.idp_cert_fingerprints", "riak_cs.saml_idp_cert_fingerprints", [
+  {commented, "b6:1d:42:4b:83:cf:6c:1f:e4:53:56:c5:c8:90:63:86:55:5e:27:28 "
+              "b6:1d:42:4b:83:cf:6c:1f:e4:53:56:c5:c8:90:63:86:55:5e:27:29"},
+  {datatype, string}
+]}.
+
+
 %% == Bucket (List Objects) ==
 
 %% @doc Set this to false if you're running

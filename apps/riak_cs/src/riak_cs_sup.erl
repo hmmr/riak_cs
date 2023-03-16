@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -114,7 +114,8 @@ rcs_process_specs() ->
         type => supervisor,
         modules => dynamic}
     ]
-        ++ riak_cs_mb_helper:process_specs().
+        ++ riak_cs_mb_helper:process_specs()
+        ++ riak_cs_sp_helper:process_specs().
 
 get_option_val({Option, Default}) ->
     handle_get_env_result(Option, get_env(Option), Default);
