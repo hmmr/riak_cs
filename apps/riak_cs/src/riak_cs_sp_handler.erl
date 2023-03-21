@@ -61,32 +61,34 @@ handle(Req, S = #state{}) ->
     {Method, Req3} = cowboy_req:method(Req2),
     handle(Method, Operation, Req3, S).
 
-                                                % Return our SP metadata as signed XML
+%% Return our SP metadata as signed XML
 handle(<<"GET">>, <<"metadata">>, Req, S = #state{sp = SP}) ->
     {ok, Req2} = esaml_cowboy:reply_with_metadata(SP, Req),
     {ok, Req2, S};
 
-                                                % Visit /saml/auth to start the authentication process -- we will make an AuthnRequest
-                                                % and send it to our IDP
+%% Visit /saml/auth to start the authentication process -- we will make an AuthnRequest
+%% and send it to our IDP
 handle(<<"GET">>, <<"auth">>, Req, S = #state{sp = SP,
                                               idp = #esaml_idp_metadata{login_location = IDP}}) ->
     {ok, Req2} = esaml_cowboy:reply_with_authnreq(SP, IDP, <<"foo">>, Req),
     {ok, Req2, S};
 
-                                                % Handles HTTP-POST bound assertions coming back from the IDP.
+%% Handles HTTP-POST bound assertions coming back from the IDP.
 handle(<<"POST">>, <<"consume">>, Req, S = #state{sp = SP}) ->
     case esaml_cowboy:validate_assertion(SP, fun esaml_util:check_dupe_ets/2, Req) of
         {ok, Assertion, RelayState, Req2} ->
             Attrs = Assertion#esaml_assertion.attributes,
             Uid = proplists:get_value(uid, Attrs),
-            Output = io_lib:format("<html><head><title>SAML SP demo</title></head><body><h1>Hi there!</h1><p>This is the <code>esaml_sp_default</code> demo SP callback module from eSAML.</p><table><tr><td>Your name:</td><td>\n~p\n</td></tr><tr><td>Your UID:</td><td>\n~p\n</td></tr></table><hr /><p>RelayState:</p><pre>\n~p\n</pre><p>The assertion I got was:</p><pre>\n~p\n</pre></body></html>", [Assertion#esaml_assertion.subject#esaml_subject.name, Uid, RelayState, Assertion]),
+            logger:debug("processing validated request, uid: ~p", [Uid]),
+            Output = forward_to_webmachine(convert_request(RelayState, Req)),
             {ok, Req3} = cowboy_req:reply(200, [{<<"Content-Type">>, <<"text/html">>}], Output, Req2),
             {ok, Req3, S};
 
         {error, Reason, Req2} ->
-            {ok, Req3} = cowboy_req:reply(403, [{<<"content-type">>, <<"text/plain">>}],
-                                          ["Access denied, assertion failed validation:\n", io_lib:format("~p\n", [Reason])],
-                                          Req2),
+            {ok, Req3} = cowboy_req:reply(
+                           403, [{<<"content-type">>, <<"text/plain">>}],
+                           [io_lib:format("Access denied, assertion failed validation:\n~p\n", [Reason])],
+                           Req2),
             {ok, Req3, S}
     end;
 
@@ -94,4 +96,13 @@ handle(_, _, Req, S = #state{}) ->
     {ok, Req2} = cowboy_req:reply(404, [], <<"Not found">>, Req),
     {ok, Req2, S}.
 
-terminate(_Reason, _Req, _State) -> ok.
+terminate(_Reason, _Req, _State) ->
+    ok.
+
+convert_request(RelayState, Req) ->
+    logger:debug("STUB Converting request ~p to an S3 call", [Req]),
+    RelayState.
+
+forward_to_webmachine(RelayState) ->
+    logger:debug("STUB Forwarding request to webmachine with RelayState: ~p", [RelayState]),
+    "okay".

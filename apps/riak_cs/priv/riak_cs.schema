@@ -477,10 +477,12 @@
 ]}.
 
 {mapping, "saml.sp_private_key", "riak_cs.saml_sp_privkey", [
+  {commented, "$(platform_etc_dir)/your-sp-pkey.pem"},
   {datatype, file}
 ]}.
 
 {mapping, "saml.sp_cerificate", "riak_cs.saml_sp_cert", [
+  {commented, "$(platform_etc_dir)/your-sp-public-cert.pem"},
   {datatype, file}
 ]}.
 
