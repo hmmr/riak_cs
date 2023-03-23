@@ -73,7 +73,6 @@
          stanchion_subnet_and_netmask/0,
          stanchion_hosting_mode/0,
          tussle_voss_riak_host/0,
-         is_saml_enabled/0,
          saml_idp_host/0,
          saml_idp_metadata_url/0,
          saml_sp_privkey/0,
@@ -408,10 +407,6 @@ set_stanchion(Host, Port, Ssl) ->
     application:set_env(riak_cs, stanchion_ssl, Ssl),
     ok.
 
-
--spec is_saml_enabled() -> boolean().
-is_saml_enabled() ->
-    application:get_env(riak_cs, saml_enabled, false).
 
 -spec saml_idp_host() -> string().
 saml_idp_host() ->

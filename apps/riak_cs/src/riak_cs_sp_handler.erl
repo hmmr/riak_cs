@@ -21,6 +21,7 @@
 -module(riak_cs_sp_handler).
 
 -include_lib("esaml/include/esaml.hrl").
+-include("saml_api.hrl").
 
 -record(state, {sp, idp}).
 -export([init/3, handle/2, terminate/3]).

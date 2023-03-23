@@ -18,19 +18,15 @@
 %%
 %% ---------------------------------------------------------------------
 
--module(riak_cs_sp_helper).
+-ifndef(RIAK_CS_SAML_API_HRL).
+-define(RIAK_CS_SAML_API_HRL, included).
 
--export([process_specs/0]).
 
-process_specs() ->
-    case riak_cs_config:auth_module() of
-        riak_cs_saml_auth  ->
-            [#{id => riak_cs_sp_sup,
-               start => {riak_cs_sp_sup, start_link, []},
-               type => supervisor,
-               modules => dynamic}
-            ];
-        _ ->
-            []
-    end.
+-record(saml_s3_auth_req_v1, {
+          access :: binary(),
+          signature :: binary(),
+          token :: binary()}).
+-type saml_s3_auth_req() :: #saml_s3_auth_req_v1{}.
+-define(SAML_S3_AUTH_REQ, #saml_s3_auth_req_v1).
 
+-endif.

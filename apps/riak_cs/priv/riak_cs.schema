@@ -455,15 +455,11 @@
   "should be a valid auth module",
   fun(riak_cs_s3_auth) -> true;
      (riak_cs_keystone_auth) -> true;
+     (riak_cs_saml_auth) -> true;
      (_) -> false
   end}.
 
 %% == SAML support ==
-
-{mapping, "saml.enabled", "riak_cs.saml_enabled", [
-  {default, off},
-  {datatype, flag}
-]}.
 
 {mapping, "saml.idp_host", "riak_cs.saml_idp_host", [
   {commented, "samltest.id"},
