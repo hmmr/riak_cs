@@ -114,8 +114,7 @@ rcs_process_specs() ->
         type => supervisor,
         modules => dynamic}
     ]
-        ++ riak_cs_mb_helper:process_specs()
-        ++ riak_cs_sp_helper:process_specs().
+        ++ riak_cs_mb_helper:process_specs().
 
 get_option_val({Option, Default}) ->
     handle_get_env_result(Option, get_env(Option), Default);
