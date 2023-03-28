@@ -60,7 +60,7 @@
           {string() | undefined,
            string() | {v4, v4_attrs()} | undefined} |
           {failed, Reason::atom()}.
-identify(RD,_Ctx) ->
+identify(RD, _Ctx) ->
     case wrq:get_req_header("authorization", RD) of
         undefined ->
             identify_by_query_string(RD);

@@ -32,47 +32,41 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--spec identify(#wm_reqdata{}, #rcs_context{}) -> failed | {string() | undefined , string()}.
+-spec identify(#wm_reqdata{}, #rcs_context{}) -> failed | {string() | undefined, string()}.
 identify(RD, #rcs_context{api=s3}) ->
-    validate_saml(s3, RD);
+    validate_federated_user(s3, RD);
 identify(RD, #rcs_context{api=saml}) ->
-    validate_saml(saml, wrq:get_req_header("x-auth-saml", RD)).
+    validate_federated_user(saml, wrq:get_req_header("x-auth-saml", RD)).
 
 -spec authenticate(rcs_user(),
                    {string(), term()}|tuple(),
                    #wm_reqdata{}, #rcs_context{}) ->
                           ok | {error, invalid_authentication | missing_creds}.
-authenticate(_User, {_, _TokenItems}, _RD, _Ctx) ->
+authenticate(_User, {_, _}, _RD, _Ctx) ->
     {error, invalid_authentication}.
 
 %% ===================================================================
 %% Internal functions
 %% ===================================================================
 
-validate_saml(_, undefined) ->
+validate_federated_user(_, undefined) ->
     failed;
-validate_saml(Api, AuthToken) ->
-    initiate_and_handle_idp_response(Api, AuthToken).
+validate_federated_user(Api, AuthToken) ->
+    check_role(Api, AuthToken).
 
-initiate_and_handle_idp_response(saml, AuthToken) ->
-    case extract_user_creds(AuthToken) of
-        {ok, {User, Passwd}} ->
-            logger:debug("initiating a SAML flow with ~p", [riak_cs_config:saml_idp_host()]),
-            %% log the caller in, start an ephemeral session
-            ok = generate_saml_request(User, Passwd),
-            validate_idp_response();
+check_role(saml, RoleIdWithUserName) ->
+    case string:tokens(RoleIdWithUserName, ":") of
+        [RoleId, UserName] ->
+            logger:debug("checking if role ~s exists for federated user ~s", [RoleId, UserName]),
+            case riak_cs_roles:get_role(RoleId) of
+                {ok, Role} ->
+                    {role, Role};
+                {error, not_found} ->
+                    {error, no_such_role}
+            end;
         _ ->
-            {error, missing_creds}
+            {error, malformed_role}
     end.
-
-extract_user_creds(_AuthHeader) ->
-    {error, missing_creds}.
-
-generate_saml_request(_User, _Passwd) ->
-    ok.
-
-validate_idp_response() ->
-    {error, invalid_authentication}.
 
 
 %% ===================================================================

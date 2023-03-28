@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,7 +22,9 @@
 -module(riak_cs_api).
 
 -export([list_buckets/1,
-         list_objects/6]).
+         list_objects/6,
+         list_roles/1
+        ]).
 
 -include("riak_cs.hrl").
 -include("riak_cs_api.hrl").
@@ -63,3 +65,6 @@ list_objects(RcPid, Request, CacheKey, UseCache) ->
         {error, _}=Error ->
             Error
     end.
+
+list_roles(RcPid) ->
+    riak_cs_roles:list_roles(RcPid).

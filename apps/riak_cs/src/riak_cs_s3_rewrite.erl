@@ -93,7 +93,13 @@ raw_url(RD) ->
                     {mochiweb_headers(), string()}.
 rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
     Host = mochiweb_headers:get_value("host", Headers),
-    HostBucket = bucket_from_host(Host),
+    HostBucket =
+        case bucket_from_host(Host) of
+            "iam" ->
+                iam;
+            RealBucket ->
+                RealBucket
+        end,
     RewrittenPath = rewrite_path(Method,
                                  Path,
                                  QueryString,
@@ -107,7 +113,8 @@ rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
 
 
 %% @doc Internal function to handle rewriting the URL
--spec rewrite_path(atom(),string(), string(), undefined | string()) -> string().
+rewrite_path(_Method, "/", QS, iam) ->
+    iam_path_from_qs(QS);
 rewrite_path(_Method, "/", _QS, undefined) ->
     "/buckets";
 rewrite_path(Method, Path, QS, undefined) ->
@@ -131,6 +138,19 @@ rewrite_path(_Method, Path, QS, Bucket) ->
                    mochiweb_util:quote_plus(string:strip(Path, left, $/)),
                    format_object_qs(get_subresources(QS))
                   ]).
+
+iam_path_from_qs(QS) ->
+    Action = proplists:get_value("Action", mochiweb_util:parse_qs(QueryString)),
+    case Action of
+        A when A =:= "GetRole";
+               A =:= "CreateRole";
+               A =:= "DeleteRole";
+               A =:= "ListRoles" ->
+            "/roles";
+        UnsupportedAction ->
+            logger:warning("iam action \"~s\" not implemented", [UnsupportedAction]),
+            "/unsupported"
+    end.
 
 %% @doc, build the path to be stored as the rewritten path in the request. Bucket name
 %% from the host header is added if it exists.

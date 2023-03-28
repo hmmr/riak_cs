@@ -39,7 +39,7 @@
                       riak_client :: undefined | riak_client(),
                       rc_pool :: atom(),    % pool name which riak_client belongs to
                       auto_rc_close = true :: boolean(),
-                      submodule :: atom(),
+                      submodule :: module(),
                       exports_fun :: undefined | function(),
                       auth_module :: atom(),
                       response_module :: atom(),
