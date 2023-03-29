@@ -151,7 +151,7 @@
 -define(DT_SERVICE_OP,      701).
 -define(DT_BUCKET_OP,       702).
 -define(DT_OBJECT_OP,       703).
-%% perhaps add later? -define(DT_AUTH_OP,         704).
+-define(DT_IAM_OP,          704).
 -define(DT_WM_OP,           705).
 
 -define(USER_BUCKETS_PRUNE_TIME, 86400). %% one-day in seconds
@@ -195,6 +195,8 @@
 -define(BLOCK_BUCKET_PREFIX, <<"0b:">>).        % Version # = 0
 
 -define(MAX_S3_KEY_LENGTH, 1024).
+
+-define(VERSIONED_KEY_SEPARATOR, <<5>>).
 
 -type mochiweb_headers() :: gb_trees:tree().
 

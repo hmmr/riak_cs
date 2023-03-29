@@ -23,6 +23,7 @@
 
 -include("riak_cs.hrl").
 -include("stanchion.hrl").
+-include("s3_api.hrl").
 
 -compile(export_all).
 -compile(nowarn_export_all).
@@ -107,6 +108,12 @@
         , multipart_descr_v1
         , part_descr_v1
         , access_v1
+          %% S3 records
+        , arn_v1
+        , policy_v1
+        , statement
+        , tag
+        , role_v1
         ]
        ).
 

@@ -27,6 +27,7 @@
 -include("riak_cs.hrl").
 -include("list_objects.hrl").
 -include("oos_api.hrl").
+-include("s3_api.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -ifdef(TEST).
@@ -79,11 +80,13 @@ to_json(?KEYSTONE_S3_AUTH_REQ{}=Req) ->
                       {<<"signature">>, Req?KEYSTONE_S3_AUTH_REQ.signature},
                       {<<"token">>, Req?KEYSTONE_S3_AUTH_REQ.token}]},
     iolist_to_binary(mochijson2:encode({struct, [{<<"credentials">>, Inner}]}));
-to_json(?RCS_USER{}=Req) ->
+to_json(?RCS_USER{} = Req) ->
     iolist_to_binary(mochijson2:encode(user_object(Req)));
 to_json({users, Users}) ->
     UserList = [user_object(User) || User <- Users],
     iolist_to_binary(mochijson2:encode(UserList));
+to_json(?S3_ROLE{} = Req) ->
+    iolist_to_binary(mochijson2:encode(role_object(Req)));
 to_json(undefined) ->
     [];
 to_json([]) ->
@@ -158,14 +161,85 @@ user_object(?RCS_USER{email=Email,
                     _ ->
                         <<"disabled">>
                 end,
-    UserData = [{email, list_to_binary(Email)},
-                {display_name, list_to_binary(DisplayName)},
-                {name, list_to_binary(Name)},
-                {key_id, list_to_binary(KeyID)},
-                {key_secret, list_to_binary(KeySecret)},
-                {id, list_to_binary(CanonicalID)},
-                {status, StatusBin}],
-    {struct, UserData}.
+    S = [{email, list_to_binary(Email)},
+         {display_name, list_to_binary(DisplayName)},
+         {name, list_to_binary(Name)},
+         {key_id, list_to_binary(KeyID)},
+         {key_secret, list_to_binary(KeySecret)},
+         {id, list_to_binary(CanonicalID)},
+         {status, StatusBin}
+        ],
+    {struct, S}.
+
+arn_object('*') ->
+    '*';
+arn_object(?S3_ARN{provider = Provider,
+                   service  = Service,
+                   region = Region,
+                   id = Id,
+                   path = Path}) ->
+    S = [{provider, Provider},
+         {service, Service},
+         {region, list_to_binary(Region)},
+         {id, Id},
+         {path, list_to_binary(Path)}
+        ],
+    {struct, S}.
+
+
+statement_object(?S3_STATEMENT{sid = Sid,
+                               effect = Effect,
+                               principal = Principal,
+                               action = Action,
+                               not_action = NotAction,
+                               resource = Resource,
+                               condition_block = ConditionBlock}) ->
+    S = [{sid, Sid},
+         {effect, Effect},
+         {principal, principal_object(Principal)},
+         {action, Action},
+         {not_action, NotAction},
+         {resource, arn_object()},
+         {condition_block, [condition_pair_object(A) || A <- ConditionBlock]}
+        ],
+    {struct, S}.
+
+policy_object(?S3_POLICY{version = Version,
+                         id = Id,
+                         statement = Statement,
+                         creation_time = CreationTime}) ->
+    S = [{version, Version},
+         {id, Id},
+         {statement, [statement_object(A) || A <- Statement]},
+         {creation_time, CreationTime}
+        ],
+    {struct, S}.
+
+role_object(?S3_ROLE{arn = Arn,
+                     assume_role_policy_document = AssumeRolePolicyDocument,
+                     create_date = CreateDate,
+                     description = Description,
+                     max_session_duration = MaxSessionDuration,
+                     path = Path,
+                     permissions_boundary = PermissionsBoundary,
+                     role_id = RoleId,
+                     role_last_used = RoleLastUsed,
+                     role_name = RoleName,
+                     tags = Tags}) ->
+    S = [{arn, arn_object(Arn)},
+         {assume_role_policy_document, policy_object(AssumeRolePolicyDocument)},
+         {create_date, CreateDate},
+         {description, Description},
+         {max_session_duration, MaxSessionDuration},
+         {path, list_to_binary(Path)},
+         {permissions_boundary, permissions_binary_object(PermissionsBoundary)},
+         {role_id, list_to_binary(RoleId)},
+         {role_last_used, RoleLastUsed},
+         {role_name, list_to_binary(RoleName)},
+         {tags, [tag_object(A) || A <- Tags]}
+        ],
+    {struct, S}.
+
 
 %% ===================================================================
 %% Eunit tests

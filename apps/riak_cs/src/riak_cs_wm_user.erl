@@ -134,7 +134,7 @@ accept_json(RD, Ctx=#rcs_context{user=undefined}) ->
           riak_cs_json:get(Body, [{<<"name">>, <<"email">>}]),
           {<<>>, <<>>}),
     user_response(riak_cs_user:create_user(binary_to_list(UserName),
-                                                binary_to_list(Email)),
+                                           binary_to_list(Email)),
                       ?JSON_TYPE,
                       RD,
                       Ctx);

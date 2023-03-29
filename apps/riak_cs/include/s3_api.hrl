@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,17 +29,17 @@
                        "delete", "lifecycle"]).
 
 % type and record definitions for S3 policy API
--type s3_object_action() :: 's3:GetObject'       | 's3:GetObjectVersion'
-                       | 's3:GetObjectAcl'    | 's3:GetObjectVersionAcl'
-                       | 's3:PutObject'       | 's3:PutObjectAcl'
-                       | 's3:PutObjectVersionAcl'
-                       | 's3:DeleteObject'    | 's3:DeleteObjectVersion'
-                       | 's3:ListObjectVersions'
-                       | 's3:ListMultipartUploadParts'
-                       | 's3:AbortMultipartUpload'
-                       %| 's3:GetObjectTorrent'         we never do this
-                       %| 's3:GetObjectVersionTorrent'  we never do this
-                       | 's3:RestoreObject'.
+-type s3_object_action() :: 's3:GetObject' | 's3:GetObjectVersion'
+                          | 's3:GetObjectAcl' | 's3:GetObjectVersionAcl'
+                          | 's3:PutObject' | 's3:PutObjectAcl'
+                          | 's3:PutObjectVersionAcl'
+                          | 's3:DeleteObject' | 's3:DeleteObjectVersion'
+                          | 's3:ListObjectVersions'
+                          | 's3:ListMultipartUploadParts'
+                          | 's3:AbortMultipartUpload'
+                        %%| 's3:GetObjectTorrent'         we never do this
+                        %%| 's3:GetObjectVersionTorrent'  we never do this
+                          | 's3:RestoreObject'.
 
 -define(SUPPORTED_OBJECT_ACTION,
         [ 's3:GetObject', 's3:GetObjectAcl', 's3:PutObject', 's3:PutObjectAcl',
@@ -48,20 +48,20 @@
           's3:ListMultipartUploadParts', 's3:AbortMultipartUpload' ]).
 
 -type s3_bucket_action() :: 's3:CreateBucket'
-                       | 's3:DeleteBucket'
-                       | 's3:ListBucket'
-                       | 's3:ListBucketVersions'
-                       | 's3:ListAllMyBuckets'
-                       | 's3:ListBucketMultipartUploads'
-                       | 's3:GetBucketAcl' | 's3:PutBucketAcl'
-                       | 's3:GetBucketVersioning' | 's3:PutBucketVersioning'
-                       | 's3:GetBucketRequestPayment' | 's3:PutBucketRequestPayment'
-                       | 's3:GetBucketLocation'
-                       | 's3:GetBucketPolicy' | 's3:DeleteBucketPolicy' | 's3:PutBucketPolicy'
-                       | 's3:GetBucketNotification' | 's3:PutBucketNotification'
-                       | 's3:GetBucketLogging' | 's3:PutBucketLogging'
-                       | 's3:GetBucketWebsite' | 's3:PutBucketWebsite' | 's3:DeleteBucketWebsite'
-                       | 's3:GetLifecycleConfiguration' | 's3:PutLifecycleConfiguration'.
+                          | 's3:DeleteBucket'
+                          | 's3:ListBucket'
+                          | 's3:ListBucketVersions'
+                          | 's3:ListAllMyBuckets'
+                          | 's3:ListBucketMultipartUploads'
+                          | 's3:GetBucketAcl' | 's3:PutBucketAcl'
+                          | 's3:GetBucketVersioning' | 's3:PutBucketVersioning'
+                          | 's3:GetBucketRequestPayment' | 's3:PutBucketRequestPayment'
+                          | 's3:GetBucketLocation'
+                          | 's3:GetBucketPolicy' | 's3:DeleteBucketPolicy' | 's3:PutBucketPolicy'
+                          | 's3:GetBucketNotification' | 's3:PutBucketNotification'
+                          | 's3:GetBucketLogging' | 's3:PutBucketLogging'
+                          | 's3:GetBucketWebsite' | 's3:PutBucketWebsite' | 's3:DeleteBucketWebsite'
+                          | 's3:GetLifecycleConfiguration' | 's3:PutLifecycleConfiguration'.
 
 -define(SUPPORTED_BUCKET_ACTION,
         [ 's3:CreateBucket', 's3:DeleteBucket', 's3:ListBucket', 's3:ListAllMyBuckets',
@@ -117,39 +117,67 @@
                         | {string_condition_type(),  [{'aws:UserAgent', binary()}]}
                         | {string_condition_type(),  [{'aws:Referer', binary()}]}.
 
--record(arn_v1, {
-          provider = aws :: aws,
-          service  = s3  :: s3,
-          region         :: string(),
-          id             :: binary(),
-          path           :: string()
-         }).
+-record(arn_v1, { provider = aws :: aws
+                , service  = s3  :: s3
+                , region         :: string()
+                , id             :: binary()
+                , path           :: string()
+                }
+       ).
 
 -type arn() :: #arn_v1{}.
+-define(S3_ARN, #arn_v1).
 
 -type principal() :: '*'
                    | [{canonical_id, string()}|{aws, '*'}].
 
--record(statement, {
-          sid = undefined :: undefined | binary(), % had better use uuid: should be UNIQUE
-          effect = deny :: allow | deny,
-          principal  = [] :: principal(),
-          action     = [] :: [ s3_object_action() | s3_bucket_action() ] | '*',
-          not_action = [] :: [ s3_object_action() | s3_bucket_action() ] | '*',
-          resource   = [] :: [ arn() ] | '*',
-          condition_block = [] :: [ condition_pair() ]
+-record(statement, { sid = undefined :: undefined | binary() % had better use uuid: should be UNIQUE
+                   , effect = deny :: allow | deny
+                   , principal  = [] :: principal()
+                   , action     = [] :: [ s3_object_action() | s3_bucket_action() ] | '*'
+                   , not_action = [] :: [ s3_object_action() | s3_bucket_action() ] | '*'
+                   , resource   = [] :: [ arn() ] | '*'
+                   , condition_block = [] :: [ condition_pair() ]
+                   }
+       ).
+-define(S3_STATEMENT, #statement).
+
+-record(policy_v1, { version = <<"2008-10-17">> :: binary()  % no other value is allowed than default
+                   , id = undefined :: undefined | binary()  % had better use uuid: should be UNIQUE
+                   , statement = [] :: [#statement{}]
+                   , creation_time = os:timestamp() :: erlang:timestamp()
          }).
 
--record(policy_v1, {
-          version = <<"2008-10-17">> :: binary(),  % no other value is allowed than default
-          id = undefined :: undefined | binary(),  % had better use uuid: should be UNIQUE
-          statement = [] :: [#statement{}],
-          creation_time=os:timestamp() :: erlang:timestamp()
-         }).
+-type policy() :: #policy_v1{}.
+-define(S3_POLICY, #policy_v1).
 
 
--define(POLICY, #policy_v1).
--define(ARN,    #arn_v1).
+-record(permissions_boundary, { permissions_boundary_arn :: arn()
+                              , permissions_boundary_type ::string()
+                              }
+).
+
+-record(tag, { key :: string()
+             , value :: string()
+             }
+       ).
+
+-record(role_v1, { arn :: arn()
+                 , assume_role_policy_document :: policy()
+                 , create_date = os:timestamp() :: erlang:timestamp()
+                 , description :: string()
+                 , max_session_duration :: non_neg_integer()
+                 , path :: string()
+                 , permissions_boundary :: permissions_boundary()
+                 , role_id :: string()
+                 , role_last_used :: erlang:timestamp()
+                 , role_name :: string()
+                 , tags :: [tag()]
+                 }
+       ).
+-type role() :: #role_v1{}.
+-define(S3_ROLE, #role_v1).
+
 
 -define(DEFAULT_REGION, "us-east-1").
 

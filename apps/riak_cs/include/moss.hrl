@@ -28,6 +28,7 @@
 -define(MOSS_USER, #rcs_user_v2).
 -define(RCS_USER, #rcs_user_v2).
 
+%% User
 -record(moss_user, { name :: string()
                    , key_id :: string()
                    , key_secret :: string()
@@ -57,7 +58,7 @@
 -type rcs_user() :: #rcs_user_v2{} | #moss_user_v1{}.
 
 
-
+%% Bucket
 -record(moss_bucket, { name :: string()
                      , creation_date :: term()
                      , acl :: acl()}).
@@ -90,6 +91,7 @@
 -define(STORAGE_BUCKET, <<"moss.storage">>).
 -define(BUCKETS_BUCKET, <<"moss.buckets">>).
 -define(SERVICE_BUCKET, <<"moss.service">>).
+-define(IAM_BUCKET, <<"moss.iam">>).
 -define(GC_BUCKET, <<"riak-cs-gc">>).
 -define(FREE_BUCKET_MARKER, <<"0">>).
 
