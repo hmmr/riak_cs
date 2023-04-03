@@ -50,7 +50,7 @@
               finish_request/2
              ]).
 
--include("riak_cs.hrl").
+-include("riak_cs_web.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
@@ -58,6 +58,7 @@
 %% Webmachine callbacks
 %% -------------------------------------------------------------------
 
+-spec init(proplists:proplist()) -> {ok, #rcs_context{}}.
 init(Config) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"init">>),
     %% Check if authentication is disabled and
@@ -69,16 +70,18 @@ init(Config) ->
                       api=Api,
                       response_module=RespModule}}.
 
--spec service_available(term(), term()) -> {true, term(), term()}.
+-spec service_available(#wm_reqdata{}, #rcs_context{}) -> {true, #wm_reqdata{}, #rcs_context{}}.
 service_available(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"service_available">>),
     riak_cs_wm_utils:service_available(RD, Ctx).
 
--spec allowed_methods(term(), term()) -> {[atom()], term(), term()}.
+-spec allowed_methods(#wm_reqdata{}, #rcs_context{}) -> {[atom()], #wm_reqdata{}, #rcs_context{}}.
 allowed_methods(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"allowed_methods">>),
     {['GET', 'HEAD', 'POST'], RD, Ctx}.
 
+-spec forbidden(#wm_reqdata{}, #rcs_context{}) ->
+          {boolean() | {halt, non_neg_integer()}}, #wm_reqdata{}, #rcs_context{}}.
 forbidden(RD, Ctx=#rcs_context{auth_bypass=AuthBypass}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"forbidden">>),
     Method = wrq:method(RD),
@@ -107,8 +110,8 @@ handle_user_auth_response({_Reason, _RD, Ctx} = Ret) ->
                                 [-1], [riak_cs_wm_utils:extract_name(Ctx#rcs_context.user), <<"true">>]),
     Ret.
 
--spec content_types_accepted(term(), term()) ->
-    {[{string(), atom()}], term(), term()}.
+-spec content_types_accepted(#wm_reqdata{}, #rcs_context{}) ->
+    {[{string(), atom()}], #wm_reqdata{}, #rcs_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
     {[{?XML_TYPE, accept_xml}, {?JSON_TYPE, accept_json}], RD, Ctx}.
@@ -121,71 +124,27 @@ post_is_create(RD, Ctx) -> {true, RD, Ctx}.
 
 -spec accept_json(#wm_reqdata{}, #rcs_context{}) ->
     {boolean() | {halt, term()}, term(), term()}.
-accept_json(RD, Ctx=#rcs_context{user=undefined}) ->
+accept_json(RD, Ctx=#rcs_context{}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
-    Body = riak_cs_json:from_json(wrq:req_body(RD)),
+    Specs = maps:from_list(
+              riak_cs_json:from_json(wrq:req_body(RD))),
+    role_response(
+      riak_cs_roles:create_role(Specs),
+      ?JSON_TYPE, RD, Ctx).
 
-    
-    
-    
-
-    {UserName, Email} =
-        riak_cs_json:value_or_default(
-          riak_cs_json:get(Body, [{<<"name">>, <<"email">>}]),
-          {<<>>, <<>>}),
-    user_response(riak_cs_user:create_user(binary_to_list(UserName),
-                                           binary_to_list(Email)),
-                      ?JSON_TYPE,
-                      RD,
-                      Ctx);
-accept_json(RD, Ctx) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
-    Body = wrq:req_body(RD),
-    case catch mochijson2:decode(Body) of
-        {struct, UserItems} ->
-            UpdateItems = lists:foldl(fun user_json_filter/2, [], UserItems),
-            user_response(update_user(UpdateItems, RD, Ctx),
-                          ?JSON_TYPE,
-                          RD,
-                          Ctx);
-        {'EXIT', _} ->
-            riak_cs_s3_response:api_error(invalid_user_update, RD, Ctx)
-    end.
-
--spec accept_xml(term(), term()) ->
-    {boolean() | {halt, term()}, term(), term()}.
-accept_xml(RD, Ctx=#rcs_context{user=undefined}) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_xml">>),
-    Body = binary_to_list(wrq:req_body(RD)),
-    case riak_cs_xml:scan(Body) of
-        {error, malformed_xml} ->
-            riak_cs_s3_response:api_error(invalid_user_update, RD, Ctx);
-        {ok, ParsedData} ->
-            ValidItems = lists:foldl(fun user_xml_filter/2,
-                                     [],
-                                     ParsedData#xmlElement.content),
-            UserName = proplists:get_value(name, ValidItems, ""),
-            Email= proplists:get_value(email, ValidItems, ""),
-            user_response(riak_cs_user:create_user(UserName, Email),
-                          ?XML_TYPE,
-                          RD,
-                          Ctx)
-    end;
+-spec accept_xml(#wm_reqdata{}, #rcs_context{}) ->
+    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_context{}}.
 accept_xml(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_xml">>),
-    Body = binary_to_list(wrq:req_body(RD)),
-    case riak_cs_xml:scan(Body) of
+    case riak_cs_xml:scan(binary_to_list(wrq:req_body(RD))) of
         {error, malformed_xml} ->
-            riak_cs_s3_response:api_error(invalid_user_update, RD, Ctx);
+            riak_cs_s3_response:api_error(invalid_role_parameters, RD, Ctx);
         {ok, ParsedData} ->
-            UpdateItems = lists:foldl(fun user_xml_filter/2,
-                                      [],
-                                      ParsedData#xmlElement.content),
-            user_response(update_user(UpdateItems, RD, Ctx),
-                          ?XML_TYPE,
-                          RD,
-                          Ctx)
-
+            Specs =
+                lists:foldl(fun role_xml_filter/2, [], ParsedData#xmlElement.content),
+            role_response(
+              riak_cs_roles:create_role(Specs),
+              ?XML_TYPE, RD, Ctx)
     end.
 
 produce_json(RD, #rcs_context{}=Ctx) ->
@@ -404,10 +363,10 @@ user_xml_filter(Element, Acc) ->
             Acc
     end.
 
-user_response({ok, User}, ContentType, RD, Ctx) ->
-    UserDoc = format_user_record(User, ContentType),
+role_response({ok, Role}, ContentType, RD, Ctx) ->
+    Doc = format_role_record(Role, ContentType),
     WrittenRD =
-        wrq:set_resp_body(UserDoc,
+        wrq:set_resp_body(Doc,
                           wrq:set_resp_header("Content-Type", ContentType, RD)),
     {true, WrittenRD, Ctx};
 user_response({halt, 200}, ContentType, RD, Ctx) ->
@@ -415,7 +374,7 @@ user_response({halt, 200}, ContentType, RD, Ctx) ->
 user_response({error, Reason}, _, RD, Ctx) ->
     riak_cs_s3_response:api_error(Reason, RD, Ctx).
 
--spec format_user_record(rcs_user(), string()) -> binary().
+-spec format_role_record(role(), string()) -> binary().
 format_user_record(User, ?JSON_TYPE) ->
     riak_cs_json:to_json(User);
 format_user_record(User, ?XML_TYPE) ->

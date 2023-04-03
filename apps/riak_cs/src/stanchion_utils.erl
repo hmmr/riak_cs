@@ -37,6 +37,8 @@
          delete_bucket_policy/2,
          to_bucket_name/2,
          update_user/2,
+         create_role/1,
+         delete_role/1,
          sha_mac/2
         ]).
 
@@ -123,24 +125,14 @@ bucket_record(Name, Operation) ->
 
 %% @doc Attempt to create a new user
 -spec create_user([{term(), term()}]) -> ok | {error, riak_connect_failed() | term()}.
-create_user(UserFields) ->
-    UserName = binary_to_list(proplists:get_value(<<"name">>, UserFields, <<>>)),
-    DisplayName = binary_to_list(proplists:get_value(<<"display_name">>, UserFields, <<>>)),
+create_user(Fields) ->
     Email = proplists:get_value(<<"email">>, UserFields, <<>>),
-    KeyId = binary_to_list(proplists:get_value(<<"key_id">>, UserFields, <<>>)),
-    KeySecret = binary_to_list(proplists:get_value(<<"key_secret">>, UserFields, <<>>)),
-    CanonicalId = binary_to_list(proplists:get_value(<<"id">>, UserFields, <<>>)),
     case riak_connection() of
         {ok, RiakPid} ->
             try
                 case email_available(Email, RiakPid) of
                     true ->
-                        User = ?MOSS_USER{name=UserName,
-                                          display_name=DisplayName,
-                                          email=binary_to_list(Email),
-                                          key_id=KeyId,
-                                          key_secret=KeySecret,
-                                          canonical_id=CanonicalId},
+                        User = exprec:fromlist_moss_user_v1(Fields),
                         save_user(User, RiakPid);
                     {false, _} ->
                         logger:info("Refusing to create an existing user with email ~s", [Email]),
@@ -176,6 +168,29 @@ delete_bucket(Bucket, OwnerId) ->
             OpResult2;
         Error ->
             Error
+    end.
+
+-spec create_role(proplists:proplist()) -> ok | {error, riak_connect_failed() | term()}.
+create_role(Fields) ->
+    Role = exprec:fromlist_role_v1(Fields),
+    case riak_connection() of
+        {ok, RiakPid} ->
+            try
+                case get_role(Role?S3_ROLE.role_id) of
+                    true ->
+                        logger:info("Role \"~s\" already exists", [Role?S3_ROLE.role_id]),
+                        {error, already_exists};
+                    {false, _} ->
+                        save_role(Role, RiakPid);
+                end
+            catch T:E:ST ->
+                    logger:error("Error creating role ~s: ~p. Stacktrace: ~p", [Role?S3_ROLE.role_id, {T, E}, ST]),
+                    {error, {T, E}}
+            after
+                close_riak_connection(RiakPid)
+            end;
+        {error, _} = Else ->
+            Else
     end.
 
 %% @doc Return the credentials of the admin user
@@ -922,3 +937,33 @@ update_user_buckets(delete, User, Bucket) ->
             UpdBuckets = lists:delete(ExistingBucket, Buckets),
             User?RCS_USER{buckets=UpdBuckets}
     end.
+
+
+get_role(Id, RiakPid) ->
+    %% Check for and resolve siblings to get a
+    %% coherent view of the bucket ownership.
+    BinKey = iolist_to_binary(Id),
+    case fetch_role(BinKey, RiakPid) of
+        {ok, {Obj, KeepDeletedBuckets}} ->
+            from_riakc_obj(Obj, KeepDeletedBuckets);
+        Error ->
+            Error
+    end.
+
+save_role(Role, RiakPid) ->
+
+    
+    Indexes = [{?EMAIL_INDEX, User?MOSS_USER.email},
+               {?ID_INDEX, User?MOSS_USER.canonical_id}],
+    Meta = dict:store(?MD_INDEX, Indexes, dict:new()),
+    Obj = riakc_obj:new(?USER_BUCKET, iolist_to_binary(User?MOSS_USER.key_id), term_to_binary(User)),
+    UserObj = riakc_obj:update_metadata(Obj, Meta),
+    {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:put(RiakPid, UserObj)),
+    case Res of
+        ok ->
+            stanchion_stats:update([riakc, put_cs_user], TAT);
+        {error, Reason} ->
+            logger:error("Failed to save user: Reason", [Reason]),
+            Res
+    end.
+

@@ -75,6 +75,8 @@ error_message(entity_too_small) ->
     "Your proposed upload is smaller than the minimum allowed object size. Each part must be at least 5 MB in size, except the last part.";
 error_message(invalid_user_update) ->
     "The user update you requested was invalid.";
+error_message(invalid_role_parameters) ->
+    "Incomplete or invalid role parameters.";
 error_message(no_such_bucket) ->
     "The specified bucket does not exist.";
 error_message({riak_connect_failed, Reason}) ->

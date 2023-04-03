@@ -31,8 +31,8 @@
          set_bucket_versioning/4,
          delete_bucket_policy/3,
          update_user/4,
-         create_role/1,
-         delete_role/1
+         create_role/3,
+         delete_role/2
         ]).
 
 -define(MAX_REQUEST_RETRIES, 3).
@@ -273,7 +273,32 @@ buckets_path(Bucket, versioning) ->
 
 
 
--spec create_role(
+-spec create_role(string(), string(), proplists:proplist()) -> {ok, string()} | {error, term()}.
+create_role(ContentType, Doc, Options) ->
+    AuthCreds = proplists:get_value(auth_creds, Options, no_auth_creds),
+    Path = roles_path([]),
+    Headers0 = [{"Content-Md5", content_md5(Doc)},
+                {"Date", httpd_util:rfc1123_date()}],
+    case AuthCreds of
+        {_, _} ->
+            Headers =
+                [{"Authorization", auth_header('POST',
+                                               ContentType,
+                                               Headers0,
+                                               Path,
+                                               AuthCreds)} |
+                 Headers0];
+        no_auth_creds ->
+            Headers = Headers0
+    end,
+    case request(post, Path, [201], ContentType, Headers, UserDoc) of
+        {ok, {{_, 201, _}, _RespHeaders, _RespBody}} ->
+            ok;
+        {error, {ok, {{_, StatusCode, Reason}, _RespHeaders, RespBody}}} ->
+            {error, {error_status, StatusCode, Reason, RespBody}};
+        {error, Error} ->
+            {error, Error}
+    end.
 
 
 %% @doc send an HTTP request where `Expect' is a list
@@ -346,10 +371,14 @@ requester_qs(Requester) ->
     "?requester=" ++
         mochiweb_util:quote_plus(Requester).
 
-%% @doc Assemble the path for a users request
 users_path(User) ->
     stringy(["/users",
              ["/" ++ User || User /= []]
+            ]).
+
+roles_path(Role) ->
+    stringy(["/roles",
+             ["/" ++ Role || Role /= []]
             ]).
 
 stringy(List) ->

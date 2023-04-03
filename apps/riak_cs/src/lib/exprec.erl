@@ -44,9 +44,6 @@
           , {nowarn_function, fromlist_part_manifest_v1/1}
           , {nowarn_function, fromlist_rcs_user_v2/1}
           , {nowarn_function, frommap_access_v1/1}
-          , {nowarn_function, frommap_rcs_context/1}
-          , {nowarn_function, frommap_key_context/1}
-          , {nowarn_function, frommap_stanchion_context/1}
           , {nowarn_function, frommap_lfs_manifest_v2/1}
           , {nowarn_function, frommap_lfs_manifest_v3/1}
           , {nowarn_function, frommap_moss_bucket/1}
@@ -74,9 +71,6 @@
           , {nowarn_function, new_part_manifest_v1/1}
           , {nowarn_function, new_rcs_user_v2/1}
           , {nowarn_function, new_access_v1/0}
-          , {nowarn_function, new_rcs_context/0}
-          , {nowarn_function, new_key_context/0}
-          , {nowarn_function, new_stanchion_context/0}
           , {nowarn_function, new_lfs_manifest_v2/0}
           , {nowarn_function, new_lfs_manifest_v3/0}
           , {nowarn_function, new_moss_bucket/0}
@@ -96,9 +90,6 @@
         , rcs_user_v2
         , moss_bucket
         , moss_bucket_v1
-        , rcs_context
-        , key_context
-        , stanchion_context
         , acl_v1
         , acl_v2
         , lfs_manifest_v2

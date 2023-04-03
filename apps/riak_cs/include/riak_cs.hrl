@@ -22,59 +22,9 @@
 -ifndef(RIAK_CS_HRL).
 -define(RIAK_CS_HRL, included).
 
--include("manifest.hrl").
--include("moss.hrl").
-
--define(RCS_VERSION, 030100).
+-define(RCS_VERSION, 030200).
 
 -type riak_client() :: pid().
-
--record(rcs_context, {start_time :: undefined | erlang:timestamp(),
-                      auth_bypass :: atom(),
-                      user :: undefined | moss_user(),
-                      user_object :: undefined | riakc_obj:riakc_obj(),
-                      bucket :: undefined | binary(),
-                      acl :: 'undefined' | acl(),
-                      requested_perm :: undefined | acl_perm(),
-                      riak_client :: undefined | riak_client(),
-                      rc_pool :: atom(),    % pool name which riak_client belongs to
-                      auto_rc_close = true :: boolean(),
-                      submodule :: module(),
-                      exports_fun :: undefined | function(),
-                      auth_module :: atom(),
-                      response_module :: atom(),
-                      policy_module :: atom(),
-                      %% Key for API rate and latency stats.
-                      %% If `stats_prefix' or `stats_key' is `no_stats', no stats
-                      %% will be gathered by riak_cs_wm_common.
-                      %% The prefix is defined by `stats_prefix()' callback of sub-module.
-                      %% If sub-module provides only `stats_prefix' (almost the case),
-                      %% stats key is [Prefix, HttpMethod]. Otherwise, sum-module
-                      %% can set specific `stats_key' by any callback that returns
-                      %% this context.
-                      stats_prefix = no_stats :: atom(),
-                      stats_key=prefix_and_method :: prefix_and_method |
-                                                     no_stats |
-                                                     riak_cs_stats:key(),
-                      local_context :: term(),
-                      api :: atom()
-                     }).
-
--record(key_context, {manifest :: undefined | 'notfound' | lfs_manifest(),
-                      upload_id :: undefined | binary(),
-                      part_number :: undefined | integer(),
-                      part_uuid :: undefined | binary(),
-                      get_fsm_pid :: undefined | pid(),
-                      putctype :: undefined | string(),
-                      bucket :: undefined | binary(),
-                      bucket_object :: undefined | notfound | riakc_obj:riakc_obj(),
-                      key :: undefined | binary(),
-                      obj_vsn = ?LFS_DEFAULT_OBJECT_VERSION :: binary(),
-                      owner :: undefined | string(),
-                      size :: undefined | non_neg_integer(),
-                      content_md5 :: undefined | binary(),
-                      update_metadata = false :: boolean()}).
-
 
 -define(DEFAULT_MAX_BUCKETS_PER_USER, 100).
 -define(DEFAULT_MAX_CONTENT_LENGTH, 5368709120). %% 5 GB
@@ -102,8 +52,6 @@
 -define(DEFAULT_FETCH_BUFFER_FACTOR, 32).
 -define(N_VAL_1_GET_REQUESTS, true).
 -define(DEFAULT_PING_TIMEOUT, 5000).
--define(JSON_TYPE, "application/json").
--define(XML_TYPE, "application/xml").
 -define(S3_API_MOD, riak_cs_s3_rewrite).
 -define(S3_LEGACY_API_MOD, riak_cs_s3_rewrite_legacy).
 -define(OOS_API_MOD, riak_cs_oos_rewrite).
@@ -172,17 +120,6 @@
 
 -define(DEFAULT_POLICY_MODULE, riak_cs_s3_policy).
 
--record(access_v1, {
-          method :: 'PUT' | 'GET' | 'POST' | 'DELETE' | 'HEAD',
-          target :: atom(), % object | object_acl | ....
-          id :: string(),
-          bucket :: binary(),
-          key = <<>> :: undefined | binary(),
-          req %:: #wm_reqdata{} % request of webmachine
-         }).
-
--type access() :: #access_v1{}.
-
 -type policy() :: riak_cs_s3_policy:policy1().
 
 -type digest() :: binary().
@@ -197,7 +134,5 @@
 -define(MAX_S3_KEY_LENGTH, 1024).
 
 -define(VERSIONED_KEY_SEPARATOR, <<5>>).
-
--type mochiweb_headers() :: gb_trees:tree().
 
 -endif.

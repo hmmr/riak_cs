@@ -19,7 +19,7 @@
 %%
 %% ---------------------------------------------------------------------
 
--module(stanchion_wm_user).
+-module(stanchion_wm_role).
 
 -export([init/1,
          service_available/2,
@@ -42,12 +42,11 @@
 -include("stanchion.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
--spec init(proplists:proplist()) -> {ok, #stanchion_context{}}.
 init(Config) ->
     %% Check if authentication is disabled and
     %% set that in the context.
     AuthBypass = proplists:get_value(auth_bypass, Config),
-    {ok, #stanchion_context{auth_bypass = AuthBypass}}.
+    {ok, #stanchion_context{auth_bypass=AuthBypass}}.
 
 -spec service_available(#wm_reqdata{}, #stanchion_context{}) -> {true, #wm_reqdata{}, #stanchion_context{}}.
 service_available(RD, Ctx) ->
@@ -55,11 +54,10 @@ service_available(RD, Ctx) ->
 
 -spec allowed_methods(#wm_reqdata{}, #stanchion_context{}) -> {[atom()], #wm_reqdata{}, #stanchion_context{}}.
 allowed_methods(RD, Ctx) ->
-    {['PUT'], RD, Ctx}.
+    {['POST'], RD, Ctx}.
 
-%% @doc Check that the request is from the admin user
 -spec is_authorized(#wm_reqdata{}, #stanchion_context{}) -> {boolean(), #wm_reqdata{}, #stanchion_context{}}.
-is_authorized(RD, Ctx=#stanchion_context{auth_bypass = AuthBypass}) ->
+is_authorized(RD, Ctx=#stanchion_context{auth_bypass=AuthBypass}) ->
     AuthHeader = wrq:get_req_header("authorization", RD),
     case stanchion_wm_utils:parse_auth_header(AuthHeader, AuthBypass) of
         {ok, AuthMod, Args} ->
@@ -73,8 +71,6 @@ is_authorized(RD, Ctx=#stanchion_context{auth_bypass = AuthBypass}) ->
             end
     end.
 
-%% @doc Set the path for the new user resource and set
-%% the Location header to generate a 201 Created response.
 -spec create_path(#wm_reqdata{}, #stanchion_context{}) -> {string(), #wm_reqdata{}, #stanchion_context{}}.
 create_path(RD, Ctx) ->
     {wrq:disp_path(RD), RD, Ctx}.
@@ -84,16 +80,15 @@ create_path(RD, Ctx) ->
 content_types_accepted(RD, Ctx) ->
     {[{"application/json", accept_body}], RD, Ctx}.
 
-%% @doc Create a user from a POST
 -spec accept_body(#wm_reqdata{}, #stanchion_context{}) ->
                          {true | {halt, pos_integer()},
                           #wm_reqdata{}, #stanchion_context{}}.
 accept_body(RD, Ctx) ->
     Body = wrq:req_body(RD),
-    KeyId = wrq:path_info(key_id, RD),
+    Id = wrq:path_info(role_id, RD),
     ParsedBody = mochijson2:decode(Body),
     FieldList = stanchion_wm_utils:json_to_proplist(ParsedBody),
-    case stanchion_server:update_user(KeyId, FieldList) of
+    case stanchion_server:create_role(Id, FieldList) of
         ok ->
             {true, RD, Ctx};
         {error, Reason} ->

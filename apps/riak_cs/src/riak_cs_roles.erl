@@ -18,9 +18,6 @@
 %%
 %% ---------------------------------------------------------------------
 
-%% @doc riak_cs bucket utility functions, but I dare not use a module
-%% name with '_utils'.
-
 -module(riak_cs_roles).
 
 -export([create_role/1,
@@ -31,25 +28,36 @@
 
 -include("riak_cs.hrl").
 -include("s3_api.hrl").
--include_lib("riak_pb/include/riak_pb_kv_codec.hrl").
--include_lib("riakc/include/riakc.hrl").
 -include_lib("kernel/include/logger.hrl").
 
--spec create_role(maps:map()) -> ok | {error, already_exists}.
+-define(ROLE_ID_LENGTH, 21).  %% length("AROAJQABLZS4A3QDU576Q").
+-define(ROLE_ID_CHARSET, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
+
+-spec create_role(proplist:proplist()) -> {ok, RoleId::string()} | {error, already_exists | term()}.
 create_role(Specs) ->
-    logger:debug("STUB create_role(~p)", [Specs]),
-    Role = exprec:frommap_role_v1(Specs),
+    Role0 = exprec:fromlist_role_v1(Specs),
+    RoleId = make_role_id(),
+    ?LOG_INFO("Creating role with id ~s", [RoleId]),
+    Role1 = Role0?S3_ROLE{role_id = RoleId},
     Result = velvet:create_role("application/json",
                                 binary_to_list(riak_cs_json:to_json(Role))),
     _ = riak_cs_stats:update_with_start(StatsKey, StartTime, Result),
-    handle_create_role(Result, Role).
+    handle_create_role(Result, RoleId).
 
-handle_create_user(ok, A) ->
+make_role_id() ->
+    fill(?ROLE_ID_LENGTH - 4, "AROA").
+fill(0, Q) ->
+    Q;
+fill(N, Q) ->
+    fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)))]).
+
+handle_create_role(ok, A) ->
     {ok, A};
-handle_create_user({error, {error_status, _, _, ErrorDoc}}, _User) ->
+handle_create_role({error, {error_status, _, _, ErrorDoc}}, _User) ->
     riak_cs_s3_response:error_response(ErrorDoc);
-handle_create_user({error, _} = Error, _) ->
+handle_create_role({error, _} = Error, _) ->
     Error.
+
 
 delete_role(RoleId) ->
     logger:debug("STUB delete_role(~p)", [RoleId]).
