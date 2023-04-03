@@ -50,6 +50,11 @@
 -include_lib("riak_pb/include/riak_pb_kv_codec.hrl").
 -include_lib("kernel/include/logger.hrl").
 
+
+-define(ROLE_ID_LENGTH, 21).  %% length("AROAJQABLZS4A3QDU576Q").
+-define(ROLE_ID_CHARSET, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
+
+
 -type riak_connect_failed() :: {riak_connect_failed, tuple()}.
 
 -spec make_pbc() -> pid().
@@ -953,6 +958,11 @@ get_role(Id, RiakPid) ->
 save_role(Role, RiakPid) ->
 
     
+    RoleId = make_role_id(),
+    ?LOG_INFO("Creating role with id ~s", [RoleId]),
+    Role1 = Role0?S3_ROLE{role_id = RoleId},
+
+
     Indexes = [{?EMAIL_INDEX, User?MOSS_USER.email},
                {?ID_INDEX, User?MOSS_USER.canonical_id}],
     Meta = dict:store(?MD_INDEX, Indexes, dict:new()),
@@ -966,4 +976,12 @@ save_role(Role, RiakPid) ->
             logger:error("Failed to save user: Reason", [Reason]),
             Res
     end.
+
+
+make_role_id() ->
+    fill(?ROLE_ID_LENGTH - 4, "AROA").
+fill(0, Q) ->
+    Q;
+fill(N, Q) ->
+    fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)))]).
 

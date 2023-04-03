@@ -30,26 +30,13 @@
 -include("s3_api.hrl").
 -include_lib("kernel/include/logger.hrl").
 
--define(ROLE_ID_LENGTH, 21).  %% length("AROAJQABLZS4A3QDU576Q").
--define(ROLE_ID_CHARSET, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").
-
 -spec create_role(proplist:proplist()) -> {ok, RoleId::string()} | {error, already_exists | term()}.
 create_role(Specs) ->
-    Role0 = exprec:fromlist_role_v1(Specs),
-    RoleId = make_role_id(),
-    ?LOG_INFO("Creating role with id ~s", [RoleId]),
-    Role1 = Role0?S3_ROLE{role_id = RoleId},
+    Role = exprec:fromlist_role_v1(Specs),
     Result = velvet:create_role("application/json",
                                 binary_to_list(riak_cs_json:to_json(Role))),
     _ = riak_cs_stats:update_with_start(StatsKey, StartTime, Result),
     handle_create_role(Result, RoleId).
-
-make_role_id() ->
-    fill(?ROLE_ID_LENGTH - 4, "AROA").
-fill(0, Q) ->
-    Q;
-fill(N, Q) ->
-    fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)))]).
 
 handle_create_role(ok, A) ->
     {ok, A};
