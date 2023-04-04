@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -85,21 +85,5 @@
                            }).
 -type bucket_versioning() :: #bucket_versioning{}.
 
-
--define(USER_BUCKET, <<"moss.users">>).
--define(ACCESS_BUCKET, <<"moss.access">>).
--define(STORAGE_BUCKET, <<"moss.storage">>).
--define(BUCKETS_BUCKET, <<"moss.buckets">>).
--define(SERVICE_BUCKET, <<"moss.service">>).
--define(IAM_BUCKET, <<"moss.iam">>).
--define(GC_BUCKET, <<"riak-cs-gc">>).
--define(FREE_BUCKET_MARKER, <<"0">>).
-
--define(MD_BAG, <<"X-Rcs-Bag">>).
--define(MD_ACL, <<"X-Moss-Acl">>).
--define(MD_POLICY, <<"X-Rcs-Policy">>).
--define(MD_VERSIONING, <<"X-Rcs-Versioning">>).
-
--define(STANCHION_DETAILS_KEY, <<"stanchion">>).
 
 -endif.

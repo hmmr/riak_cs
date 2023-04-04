@@ -124,7 +124,7 @@ post_is_create(RD, Ctx) -> {true, RD, Ctx}.
 
 -spec accept_json(#wm_reqdata{}, #rcs_context{}) ->
     {boolean() | {halt, term()}, term(), term()}.
-accept_json(RD, Ctx=#rcs_context{}) ->
+accept_json(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
     Specs = maps:from_list(
               riak_cs_json:from_json(wrq:req_body(RD))),
@@ -176,7 +176,6 @@ finish_request(RD, Ctx=#rcs_context{riak_client=RcPid}) ->
 %% Internal functions
 %% -------------------------------------------------------------------
 
--spec admin_check(boolean(), term(), term()) -> {boolean(), term(), term()}.
 admin_check(true, RD, Ctx) ->
     {false, RD, Ctx#rcs_context{user=undefined}};
 admin_check(false, RD, Ctx) ->
@@ -186,13 +185,6 @@ admin_check(false, RD, Ctx) ->
 etag(Body) ->
         riak_cs_utils:etag_from_binary(riak_cs_utils:md5(Body)).
 
--spec forbidden(atom(),
-                term(),
-                term(),
-                undefined | rcs_user(),
-                string(),
-                boolean()) ->
-                       {boolean() | {halt, term()}, term(), term()}.
 forbidden(_Method, RD, Ctx, undefined, _UserPathKey, false) ->
     %% anonymous access disallowed
     riak_cs_wm_utils:deny_access(RD, Ctx);
@@ -202,8 +194,6 @@ forbidden(_, RD, Ctx, undefined, UserPathKey, true) ->
     get_user({false, RD, Ctx}, UserPathKey);
 forbidden('POST', RD, Ctx, User, [], _) ->
     %% Admin is creating a new user
-    admin_check(riak_cs_user:is_admin(User), RD, Ctx);
-forbidden('PUT', RD, Ctx, User, [], _) ->
     admin_check(riak_cs_user:is_admin(User), RD, Ctx);
 forbidden(_Method, RD, Ctx, User, UserPathKey, _) when
       UserPathKey =:= User?RCS_USER.key_id;
@@ -215,20 +205,12 @@ forbidden(_Method, RD, Ctx, User, UserPathKey, _) ->
     AdminCheckResult = admin_check(riak_cs_user:is_admin(User), RD, Ctx),
     get_user(AdminCheckResult, UserPathKey).
 
--spec get_user({boolean() | {halt, term()}, term(), term()}, string()) ->
-                      {boolean() | {halt, term()}, term(), term()}.
 get_user({false, RD, Ctx}, UserPathKey) ->
     handle_get_user_result(
       riak_cs_user:get_user(UserPathKey, Ctx#rcs_context.riak_client),
-      RD,
-      Ctx);
+      RD, Ctx);
 get_user(AdminCheckResult, _) ->
     AdminCheckResult.
-
--spec handle_get_user_result({ok, {rcs_user(), term()}} | {error, term()},
-                             term(),
-                             term()) ->
-                                    {boolean() | {halt, term()}, term(), term()}.
 
 handle_get_user_result({ok, {User, UserObj}}, RD, Ctx) ->
     {false, RD, Ctx#rcs_context{user=User, user_object=UserObj}};
@@ -237,50 +219,12 @@ handle_get_user_result({error, Reason}, RD, Ctx) ->
                    " Reason: ~p", [user_key(RD), Reason]),
     riak_cs_s3_response:api_error(invalid_access_key_id, RD, Ctx).
 
--spec update_user([{atom(), term()}], #wm_reqdata{}, #rcs_context{}) ->
-    {ok, rcs_user()} | {halt, term()} | {error, term()}.
-update_user(UpdateItems, RD, Ctx=#rcs_context{user=User}) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"update_user">>),
-    UpdateUserResult = update_user_record(User, UpdateItems, false),
-    handle_update_result(UpdateUserResult, RD, Ctx).
 
--spec update_user_record('undefined' | rcs_user(), [{atom(), term()}], boolean())
-                        -> {boolean(), rcs_user()}.
-update_user_record(_User, [], RecordUpdated) ->
-    {RecordUpdated, _User};
-update_user_record(User=?RCS_USER{status=Status},
-                   [{status, Status} | RestUpdates],
-                   _RecordUpdated) ->
-    update_user_record(User, RestUpdates, _RecordUpdated);
-update_user_record(User, [{status, Status} | RestUpdates], _RecordUpdated) ->
-    update_user_record(User?RCS_USER{status=Status}, RestUpdates, true);
-update_user_record(User, [{name, Name} | RestUpdates], _RecordUpdated) ->
-    update_user_record(User?RCS_USER{name=Name}, RestUpdates, true);
-update_user_record(User, [{email, Email} | RestUpdates], _RecordUpdated) ->
-    DisplayName = riak_cs_user:display_name(Email),
-    update_user_record(User?RCS_USER{email=Email, display_name=DisplayName},
-                       RestUpdates,
-                       true);
-update_user_record(User=?RCS_USER{}, [{new_key_secret, true} | RestUpdates], _) ->
-    update_user_record(riak_cs_user:update_key_secret(User), RestUpdates, true);
-update_user_record(_User, [_ | RestUpdates], _RecordUpdated) ->
-    update_user_record(_User, RestUpdates, _RecordUpdated).
-
--spec handle_update_result({boolean(), rcs_user()}, term(), term()) ->
-    {ok, rcs_user()} | {halt, term()} | {error, term()}.
-handle_update_result({false, _User}, _RD, _Ctx) ->
-    {halt, 200};
-handle_update_result({true, User}, _RD, Ctx) ->
-    #rcs_context{user_object=UserObj,
-             riak_client=RcPid} = Ctx,
-    riak_cs_user:update_user(User, UserObj, RcPid).
-
--spec set_resp_data(string(), term(), term()) -> term().
 set_resp_data(ContentType, RD, #rcs_context{user=User}) ->
     UserDoc = format_user_record(User, ContentType),
     wrq:set_resp_body(UserDoc, RD).
 
--spec user_json_filter({binary(), binary()}, [{atom(), term()}]) -> [{atom(), term()}].
+
 user_json_filter({ItemKey, ItemValue}, Acc) ->
     case ItemKey of
         <<"email">> ->

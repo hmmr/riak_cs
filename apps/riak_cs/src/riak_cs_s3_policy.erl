@@ -63,7 +63,7 @@
         ]).
 -endif.
 
--type policy1() :: ?POLICY{}.
+-type policy1() :: ?S3_POLICY{}.
 
 -export_type([policy1/0]).
 

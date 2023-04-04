@@ -26,20 +26,53 @@
 
 -type riak_client() :: pid().
 
--define(DEFAULT_MAX_BUCKETS_PER_USER, 100).
--define(DEFAULT_MAX_CONTENT_LENGTH, 5368709120). %% 5 GB
--define(DEFAULT_LFS_BLOCK_SIZE, 1048576).%% 1 MB
--define(XML_PROLOG, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>").
--define(S3_XMLNS, "http://s3.amazonaws.com/doc/2006-03-01/").
+-define(S3_API_MOD, riak_cs_s3_rewrite).
+-define(S3_LEGACY_API_MOD, riak_cs_s3_rewrite_legacy).
+-define(OOS_API_MOD, riak_cs_oos_rewrite).
+-define(S3_RESPONSE_MOD, riak_cs_s3_response).
+-define(OOS_RESPONSE_MOD, riak_cs_oos_response).
+
+-define(DEFAULT_AUTH_MODULE, riak_cs_s3_auth).
+-define(DEFAULT_POLICY_MODULE, riak_cs_s3_policy).
+
 -define(DEFAULT_STANCHION_IP, "127.0.0.1").
 -define(DEFAULT_STANCHION_PORT, 8085).
 -define(DEFAULT_STANCHION_SSL, true).
+
+-define(DEFAULT_MAX_BUCKETS_PER_USER, 100).
+-define(DEFAULT_MAX_CONTENT_LENGTH, 5368709120). %% 5 GB
+-define(DEFAULT_LFS_BLOCK_SIZE, 1048576).%% 1 MB
+
+-define(XML_PROLOG, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>").
+-define(S3_XMLNS, "http://s3.amazonaws.com/doc/2006-03-01/").
+
+-define(USER_BUCKET, <<"moss.users">>).
+-define(ACCESS_BUCKET, <<"moss.access">>).
+-define(STORAGE_BUCKET, <<"moss.storage">>).
+-define(BUCKETS_BUCKET, <<"moss.buckets">>).
+-define(SERVICE_BUCKET, <<"moss.service">>).
+-define(IAM_BUCKET, <<"moss.iam">>).
+-define(GC_BUCKET, <<"riak-cs-gc">>).
+-define(FREE_BUCKET_MARKER, <<"0">>).
+
+-define(MD_BAG, <<"X-Rcs-Bag">>).
+-define(MD_ACL, <<"X-Moss-Acl">>).
+-define(MD_POLICY, <<"X-Rcs-Policy">>).
+-define(MD_VERSIONING, <<"X-Rcs-Versioning">>).
+
+-define(USERMETA_BUCKET, "RCS-bucket").
+-define(USERMETA_KEY, "RCS-key").
+-define(USERMETA_BCSUM, "RCS-bcsum").
+
 -define(EMAIL_INDEX, <<"email_bin">>).
 -define(ID_INDEX, <<"c_id_bin">>).
 -define(KEY_INDEX, <<"$key">>).
--define(AUTH_USERS_GROUP, "http://acs.amazonaws.com/groups/global/AuthenticatedUsers").
--define(ALL_USERS_GROUP, "http://acs.amazonaws.com/groups/global/AllUsers").
--define(LOG_DELIVERY_GROUP, "http://acs.amazonaws.com/groups/s3/LogDelivery").
+-define(ROLE_ID_INDEX, <<"role_id_bin">>).
+-define(ROLE_NAME_INDEX, <<"role_name_bin">>).
+-define(ROLE_PATH_INDEX, <<"role_path_bin">>).
+
+-define(STANCHION_DETAILS_KEY, <<"stanchion">>).
+
 -define(DEFAULT_FETCH_CONCURRENCY, 1).
 -define(DEFAULT_PUT_CONCURRENCY, 1).
 -define(DEFAULT_DELETE_CONCURRENCY, 1).
@@ -52,11 +85,6 @@
 -define(DEFAULT_FETCH_BUFFER_FACTOR, 32).
 -define(N_VAL_1_GET_REQUESTS, true).
 -define(DEFAULT_PING_TIMEOUT, 5000).
--define(S3_API_MOD, riak_cs_s3_rewrite).
--define(S3_LEGACY_API_MOD, riak_cs_s3_rewrite_legacy).
--define(OOS_API_MOD, riak_cs_oos_rewrite).
--define(S3_RESPONSE_MOD, riak_cs_s3_response).
--define(OOS_RESPONSE_MOD, riak_cs_oos_response).
 
 -define(COMPRESS_TERMS, false).
 
@@ -104,7 +132,6 @@
 
 -define(USER_BUCKETS_PRUNE_TIME, 86400). %% one-day in seconds
 -define(DEFAULT_CLUSTER_ID_TIMEOUT,5000).
--define(DEFAULT_AUTH_MODULE, riak_cs_s3_auth).
 -define(DEFAULT_LIST_OBJECTS_MAX_KEYS, 1000).
 -define(DEFAULT_MD5_CHUNK_SIZE, 1048576). %% 1 MB
 -define(DEFAULT_MANIFEST_WARN_SIBLINGS, 20).
@@ -118,21 +145,15 @@
 %% General system info
 -define(WORD_SIZE, erlang:system_info(wordsize)).
 
--define(DEFAULT_POLICY_MODULE, riak_cs_s3_policy).
-
--type policy() :: riak_cs_s3_policy:policy1().
-
--type digest() :: binary().
-
--define(USERMETA_BUCKET, "RCS-bucket").
--define(USERMETA_KEY,    "RCS-key").
--define(USERMETA_BCSUM,  "RCS-bcsum").
-
 -define(OBJECT_BUCKET_PREFIX, <<"0o:">>).       % Version # = 0
 -define(BLOCK_BUCKET_PREFIX, <<"0b:">>).        % Version # = 0
 
 -define(MAX_S3_KEY_LENGTH, 1024).
 
 -define(VERSIONED_KEY_SEPARATOR, <<5>>).
+
+-define(AUTH_USERS_GROUP, "http://acs.amazonaws.com/groups/global/AuthenticatedUsers").
+-define(ALL_USERS_GROUP, "http://acs.amazonaws.com/groups/global/AllUsers").
+-define(LOG_DELIVERY_GROUP, "http://acs.amazonaws.com/groups/s3/LogDelivery").
 
 -endif.

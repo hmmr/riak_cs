@@ -24,8 +24,10 @@
 
 %% Public API
 -export([create_bucket/1,
+         create_role/1,
          create_user/1,
          delete_bucket/2,
+         delete_role/1,
          get_admin_creds/0,
          get_manifests_raw/4,
          get_pbc/0,
@@ -37,8 +39,7 @@
          delete_bucket_policy/2,
          to_bucket_name/2,
          update_user/2,
-         create_role/1,
-         delete_role/1,
+         get_role/1
          sha_mac/2
         ]).
 
@@ -759,7 +760,7 @@ get_user(KeyId, RiakPid) ->
     %% Check for and resolve siblings to get a
     %% coherent view of the bucket ownership.
     BinKey = iolist_to_binary(KeyId),
-    case fetch_user(BinKey, RiakPid) of
+    case fetch_object(?USER_BUCKET, BinKey, RiakPid) of
         {ok, {Obj, KeepDeletedBuckets}} ->
             from_riakc_obj(Obj, KeepDeletedBuckets);
         Error ->
@@ -781,34 +782,6 @@ from_riakc_obj(Obj, KeepDeletedBuckets) ->
             User = hd(Values),
             Buckets = resolve_buckets(Values, [], KeepDeletedBuckets),
             {ok, {User?RCS_USER{buckets=Buckets}, Obj}}
-    end.
-
-%% @doc Perform an initial read attempt with R=PR=N.
-%% If the initial read fails retry using
-%% R=quorum and PR=1, but indicate that bucket deletion
-%% indicators should not be cleaned up.
--spec fetch_user(binary(), pid()) ->
-                        {ok, {term(), boolean()}} | {error, term()}.
-fetch_user(Key, RiakPid) ->
-    StrongOptions = [{r, all}, {pr, all}, {notfound_ok, false}],
-    {Res0, TAT0} = ?TURNAROUND_TIME(riakc_pb_socket:get(RiakPid, ?USER_BUCKET, Key, StrongOptions)),
-    stanchion_stats:update([riakc, get_cs_user_strong], TAT0),
-    case Res0 of
-        {ok, Obj} ->
-            {ok, {Obj, true}};
-        {error, _} ->
-            weak_fetch_user(Key, RiakPid)
-    end.
-
-weak_fetch_user(Key, RiakPid) ->
-    WeakOptions = [{r, quorum}, {pr, one}, {notfound_ok, false}],
-    {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:get(RiakPid, ?USER_BUCKET, Key, WeakOptions)),
-    stanchion_stats:update([riakc, get_cs_user], TAT),
-    case Res of
-        {ok, Obj} ->
-            {ok, {Obj, false}};
-        {error, Reason} ->
-            {error, Reason}
     end.
 
 %% @doc Resolve the set of buckets for a user when
@@ -948,7 +921,7 @@ get_role(Id, RiakPid) ->
     %% Check for and resolve siblings to get a
     %% coherent view of the bucket ownership.
     BinKey = iolist_to_binary(Id),
-    case fetch_role(BinKey, RiakPid) of
+    case fetch_object(?IAM_BUCKET, BinKey, RiakPid) of
         {ok, {Obj, KeepDeletedBuckets}} ->
             from_riakc_obj(Obj, KeepDeletedBuckets);
         Error ->
@@ -956,27 +929,36 @@ get_role(Id, RiakPid) ->
     end.
 
 save_role(Role, RiakPid) ->
+    RoleId = ensure_inique_role_id(RiakPid),
 
-    
-    RoleId = make_role_id(),
-    ?LOG_INFO("Creating role with id ~s", [RoleId]),
+    ?LOG_INFO("Saving new role with id ~s", [RoleId]),
     Role1 = Role0?S3_ROLE{role_id = RoleId},
 
-
-    Indexes = [{?EMAIL_INDEX, User?MOSS_USER.email},
-               {?ID_INDEX, User?MOSS_USER.canonical_id}],
+    Indexes = [{?ROLE_NAME_INDEX, Role?S3_ROLE.role_name},
+               {?ROLE_ID_INDEX, Role?S3_ROLE.role_id},
+               {?ROLE_PATH_INDEX, Role?S3_ROLE.path}
+              ],
     Meta = dict:store(?MD_INDEX, Indexes, dict:new()),
-    Obj = riakc_obj:new(?USER_BUCKET, iolist_to_binary(User?MOSS_USER.key_id), term_to_binary(User)),
-    UserObj = riakc_obj:update_metadata(Obj, Meta),
+    Obj = riakc_obj:update_metadata(
+            riakc_obj:new(?IAM_BUCKET, iolist_to_binary(RoleId), term_to_binary(Role)),
+            Meta),
     {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:put(RiakPid, UserObj)),
     case Res of
         ok ->
-            stanchion_stats:update([riakc, put_cs_user], TAT);
+            stanchion_stats:update([riakc, put_cs_role], TAT);
         {error, Reason} ->
-            logger:error("Failed to save user: Reason", [Reason]),
+            logger:error("Failed to save role \"~s\": ~p", [Reason]),
             Res
     end.
 
+ensure_inique_role_id(RcPid) ->
+    Id = make_role_id(),
+    case fetch_object(?IAM_BUCKET, Id, RcPid) of
+        {ok, _} ->
+            ensure_inique_role_id();
+        _ ->
+            Id
+    end.
 
 make_role_id() ->
     fill(?ROLE_ID_LENGTH - 4, "AROA").
@@ -984,4 +966,40 @@ fill(0, Q) ->
     Q;
 fill(N, Q) ->
     fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)))]).
+
+
+%% @doc Perform an initial read attempt with R=PR=N.
+%% If the initial read fails retry using
+%% R=quorum and PR=1, but indicate that bucket deletion
+%% indicators should not be cleaned up.
+fetch_object(Bucket, Key, RiakPid) ->
+    StrongOptions = [{r, all}, {pr, all}, {notfound_ok, false}],
+    {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:get(RiakPid, Bucket, Key, StrongOptions)),
+    stanchion_stats:update([riakc, metric_for(Bucket, strong)], TAT),
+    case Res of
+        {ok, Obj} ->
+            {ok, {Obj, true}};
+        {error, _} ->
+            weak_fetch_object(Key, RiakPid)
+    end.
+
+weak_fetch_object(Bucket, Key, RiakPid) ->
+    WeakOptions = [{r, quorum}, {pr, one}, {notfound_ok, false}],
+    {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:get(RiakPid, Bucket, Key, WeakOptions)),
+    stanchion_stats:update([riakc, metric_for(Bucket, weak)], TAT),
+    case Res of
+        {ok, Obj} ->
+            {ok, {Obj, false}};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+metric_for(?IAM_BUCKET, strong) ->
+    get_cs_role_strong;
+metric_for(?USER_BUCKET, strong) ->
+    get_cs_user_strong.
+metric_for(?IAM_BUCKET, weak) ->
+    get_cs_role_strong;
+metric_for(?USER_BUCKET, weak) ->
+    get_cs_user.
 
