@@ -80,45 +80,26 @@ allowed_methods(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"allowed_methods">>),
     {['GET', 'HEAD', 'POST'], RD, Ctx}.
 
--spec forbidden(#wm_reqdata{}, #rcs_context{}) ->
-          {boolean() | {halt, non_neg_integer()}}, #wm_reqdata{}, #rcs_context{}}.
-forbidden(RD, Ctx=#rcs_context{auth_bypass=AuthBypass}) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"forbidden">>),
-    Method = wrq:method(RD),
-    AnonOk = (Method =:= 'POST') orelse AuthBypass,
-    Next = fun(NewRD, NewCtx=#rcs_context{user=User}) ->
-                   forbidden(wrq:method(RD),
-                             NewRD,
-                             NewCtx,
-                             User,
-                             user_key(RD),
-                             AnonOk)
-           end,
-    UserAuthResponse = riak_cs_wm_utils:find_and_auth_user(RD, Ctx, Next),
-    handle_user_auth_response(UserAuthResponse).
-
-handle_user_auth_response({false, _RD, Ctx} = Ret) ->
-    riak_cs_dtrace:dt_wm_return(?MODULE, <<"forbidden">>,
-                                [], [riak_cs_wm_utils:extract_name(Ctx#rcs_context.user), <<"false">>]),
-    Ret;
-handle_user_auth_response({{halt, Code}, _RD, Ctx} = Ret) ->
-    riak_cs_dtrace:dt_wm_return(?MODULE, <<"forbidden">>,
-                                [Code], [riak_cs_wm_utils:extract_name(Ctx#rcs_context.user), <<"true">>]),
-    Ret;
-handle_user_auth_response({_Reason, _RD, Ctx} = Ret) ->
-    riak_cs_dtrace:dt_wm_return(?MODULE, <<"forbidden">>,
-                                [-1], [riak_cs_wm_utils:extract_name(Ctx#rcs_context.user), <<"true">>]),
-    Ret.
-
 -spec content_types_accepted(#wm_reqdata{}, #rcs_context{}) ->
-    {[{string(), atom()}], #wm_reqdata{}, #rcs_context{}}.
+    {[{{?XML_TYPE, accept_xml}], #wm_reqdata{}, #rcs_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
     {[{?XML_TYPE, accept_xml}, {?JSON_TYPE, accept_json}], RD, Ctx}.
 
+-spec content_types_provided(#wm_reqdata{}, #rcs_context{}) ->
+    {[{?XML_TYPE, produce_xml}], #wm_reqdata{}, #rcs_context{}}.
 content_types_provided(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_provided">>),
     {[{?XML_TYPE, produce_xml}, {?JSON_TYPE, produce_json}], RD, Ctx}.
+
+
+-spec authorize(#wm_reqdata{}, #rcs_context{}) ->
+    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_context{}}.
+authorize(RD, Ctx0=#rcs_context{local_context=LocalCtx0,
+                                riak_client=RcPid}) ->
+    Method = wrq:method(RD),
+    riak_cs_wm_utils:role_access_authorize_helper(Method, RD, Ctx).
+
 
 post_is_create(RD, Ctx) -> {true, RD, Ctx}.
 
@@ -126,8 +107,8 @@ post_is_create(RD, Ctx) -> {true, RD, Ctx}.
     {boolean() | {halt, term()}, term(), term()}.
 accept_json(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
-    Specs = maps:from_list(
-              riak_cs_json:from_json(wrq:req_body(RD))),
+    Specs =
+        lists:foldl(fun role_json_filter/2, [], riak_cs_json:from_json(wrq:req_body(RD))),
     role_response(
       riak_cs_roles:create_role(Specs),
       ?JSON_TYPE, RD, Ctx).
@@ -185,63 +166,27 @@ admin_check(false, RD, Ctx) ->
 etag(Body) ->
         riak_cs_utils:etag_from_binary(riak_cs_utils:md5(Body)).
 
-forbidden(_Method, RD, Ctx, undefined, _UserPathKey, false) ->
-    %% anonymous access disallowed
-    riak_cs_wm_utils:deny_access(RD, Ctx);
-forbidden(_, _RD, _Ctx, undefined, [], true) ->
-    {false, _RD, _Ctx};
-forbidden(_, RD, Ctx, undefined, UserPathKey, true) ->
-    get_user({false, RD, Ctx}, UserPathKey);
-forbidden('POST', RD, Ctx, User, [], _) ->
-    %% Admin is creating a new user
-    admin_check(riak_cs_user:is_admin(User), RD, Ctx);
-forbidden(_Method, RD, Ctx, User, UserPathKey, _) when
-      UserPathKey =:= User?RCS_USER.key_id;
-      UserPathKey =:= [] ->
-    %% User is accessing own account
-    AccessRD = riak_cs_access_log_handler:set_user(User, RD),
-    {false, AccessRD, Ctx};
-forbidden(_Method, RD, Ctx, User, UserPathKey, _) ->
-    AdminCheckResult = admin_check(riak_cs_user:is_admin(User), RD, Ctx),
-    get_user(AdminCheckResult, UserPathKey).
-
-get_user({false, RD, Ctx}, UserPathKey) ->
-    handle_get_user_result(
-      riak_cs_user:get_user(UserPathKey, Ctx#rcs_context.riak_client),
-      RD, Ctx);
-get_user(AdminCheckResult, _) ->
-    AdminCheckResult.
-
-handle_get_user_result({ok, {User, UserObj}}, RD, Ctx) ->
-    {false, RD, Ctx#rcs_context{user=User, user_object=UserObj}};
-handle_get_user_result({error, Reason}, RD, Ctx) ->
-    logger:warning("Failed to fetch user record. KeyId: ~p"
-                   " Reason: ~p", [user_key(RD), Reason]),
-    riak_cs_s3_response:api_error(invalid_access_key_id, RD, Ctx).
-
-
 set_resp_data(ContentType, RD, #rcs_context{user=User}) ->
     UserDoc = format_user_record(User, ContentType),
     wrq:set_resp_body(UserDoc, RD).
 
 
-user_json_filter({ItemKey, ItemValue}, Acc) ->
+role_json_filter({ItemKey, ItemValue}, Acc) ->
     case ItemKey of
-        <<"email">> ->
-            [{email, binary_to_list(ItemValue)} | Acc];
-        <<"name">> ->
-            [{name, binary_to_list(ItemValue)} | Acc];
-        <<"status">> ->
-            case ItemValue of
-                <<"enabled">> ->
-                    [{status, enabled} | Acc];
-                <<"disabled">> ->
-                    [{status, disabled} | Acc];
-                _ ->
-                    Acc
-            end;
-        <<"new_key_secret">> ->
-            [{new_key_secret, ItemValue} | Acc];
+        <<"AssumeRolePolicyDocument">> ->
+            [{assume_role_policy_document, ItemValue} | Acc];
+        <<"Description">> ->
+            [{description, ItemValue} | Acc];
+        <<"MaxSessionDuration">> ->
+            [{max_session_duration, ItemValue} | Acc];
+        <<"Path">> ->
+            [{path, ItemValue} | Acc];
+        <<"PermissionsBoundary">> ->
+            [{path, ItemValue} | Acc];
+        <<"RoleName">> ->
+            [{path, ItemValue} | Acc];
+        <<"Tags">> ->
+            [{path, ItemValue} | Acc];
         _ ->
             Acc
     end.
@@ -253,9 +198,9 @@ user_key(RD) ->
     end.
 
 -spec user_xml_filter(#xmlText{} | #xmlElement{}, [{atom(), term()}]) -> [{atom(), term()}].
-user_xml_filter(#xmlText{}, Acc) ->
+role_xml_filter(#xmlText{}, Acc) ->
     Acc;
-user_xml_filter(Element, Acc) ->
+role_xml_filter(Element, Acc) ->
     case Element#xmlElement.name of
         'Email' ->
             [Content | _] = Element#xmlElement.content,

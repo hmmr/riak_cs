@@ -117,8 +117,10 @@
                         | {string_condition_type(),  [{'aws:UserAgent', binary()}]}
                         | {string_condition_type(),  [{'aws:Referer', binary()}]}.
 
+-type service() :: s3 | iam.
+
 -record(arn_v1, { provider = aws :: aws
-                , service  = s3  :: s3
+                , service  = s3  :: service()
                 , region         :: string()
                 , id             :: binary()
                 , path           :: string()

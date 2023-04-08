@@ -85,10 +85,9 @@ content_types_accepted(RD, Ctx) ->
                           #wm_reqdata{}, #stanchion_context{}}.
 accept_body(RD, Ctx) ->
     Body = wrq:req_body(RD),
-    Id = wrq:path_info(role_id, RD),
     ParsedBody = mochijson2:decode(Body),
     FieldList = stanchion_wm_utils:json_to_proplist(ParsedBody),
-    case stanchion_server:create_role(Id, FieldList) of
+    case stanchion_server:create_role(FieldList) of
         ok ->
             {true, RD, Ctx};
         {error, Reason} ->

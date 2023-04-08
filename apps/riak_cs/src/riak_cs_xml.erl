@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -101,7 +101,10 @@ to_xml(Resp) when is_record(Resp, list_objects_response);
 to_xml(?RCS_USER{}=User) ->
     user_record_to_xml(User);
 to_xml({users, Users}) ->
-    user_records_to_xml(Users).
+    user_records_to_xml(Users);
+to_xml(?S3_ROLE{}=Role) ->
+    role_record_to_xml(Role).
+
 
 %% ===================================================================
 %% Internal functions
@@ -258,25 +261,20 @@ user_to_xml_owner(?RCS_USER{canonical_id=CanonicalId, display_name=Name}) ->
     make_internal_node('Owner', [make_external_node('ID', [CanonicalId]),
                                  make_external_node('DisplayName', [Name])]).
 
--spec make_internal_node(atom(), term()) -> internal_node().
 make_internal_node(Name, Content) ->
     {Name, Content}.
 
--spec make_internal_node(atom(), attributes(), term()) -> internal_node().
 make_internal_node(Name, Attributes, Content) ->
     {Name, Attributes, Content}.
 
--spec make_external_node(atom(), term()) -> external_node().
 make_external_node(Name, Content) ->
     {Name, [format_value(Content)]}.
 
 %% @doc Assemble the xml for the set of grantees for an acl.
--spec make_grants([acl_grant()]) -> [internal_node()].
 make_grants(Grantees) ->
     make_grants(Grantees, []).
 
 %% @doc Assemble the xml for the set of grantees for an acl.
--spec make_grants([acl_grant()], [[internal_node()]]) -> [internal_node()].
 make_grants([], Acc) ->
     lists:flatten(Acc);
 make_grants([{{GranteeName, GranteeId}, Perms} | RestGrantees], Acc) ->
@@ -287,7 +285,6 @@ make_grants([{Group, Perms} | RestGrantees], Acc) ->
     make_grants(RestGrantees, [Grantee | Acc]).
 
 %% @doc Assemble the xml for a group grantee for an acl.
--spec make_grant(atom(), acl_perm()) -> internal_node().
 make_grant(Group, Permission) ->
     Attributes = [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
                   {'xsi:type', "Group"}],
@@ -298,7 +295,6 @@ make_grant(Group, Permission) ->
     make_internal_node('Grant', GrantContent).
 
 %% @doc Assemble the xml for a single grantee for an acl.
--spec make_grant(string(), string(), acl_perm()) -> internal_node().
 make_grant(DisplayName, CanonicalId, Permission) ->
     Attributes = [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
                   {'xsi:type', "CanonicalUser"}],
@@ -309,35 +305,17 @@ make_grant(DisplayName, CanonicalId, Permission) ->
          make_external_node('Permission', Permission)],
     make_internal_node('Grant', GrantContent).
 
--spec format_value(atom() | integer() | binary() | list()) -> string().
-%% @doc Convert value depending on its type into strings
-format_value(undefined) ->
-    [];
-format_value(Val) when is_atom(Val) ->
-    atom_to_list(Val);
-format_value(Val) when is_binary(Val) ->
-    binary_to_list(Val);
-format_value(Val) when is_integer(Val) ->
-    integer_to_list(Val);
-format_value(Val) when is_list(Val) ->
-    Val;
-format_value(Val) when is_float(Val) ->
-    io_lib:format("~p", [Val]).
-
 %% @doc Map a ACL group atom to its corresponding URI.
--spec uri_for_group(atom()) -> string().
 uri_for_group('AllUsers') ->
     ?ALL_USERS_GROUP;
 uri_for_group('AuthUsers') ->
     ?AUTH_USERS_GROUP.
 
 %% @doc Convert a Riak CS user record to XML
--spec user_record_to_xml(rcs_user()) -> binary().
 user_record_to_xml(User) ->
     export_xml([user_node(User)]).
 
 %% @doc Convert a set of Riak CS user records to XML
--spec user_records_to_xml([rcs_user()]) -> binary().
 user_records_to_xml(Users) ->
     UserNodes = [user_node(User) || User <- Users],
     export_xml([make_internal_node('Users', UserNodes)]).
@@ -355,14 +333,72 @@ user_node(?RCS_USER{email=Email,
                     _ ->
                         "disabled"
                 end,
-    Content = [make_external_node('Email', Email),
-               make_external_node('DisplayName', DisplayName),
-               make_external_node('Name', Name),
-               make_external_node('KeyId', KeyID),
-               make_external_node('KeySecret', KeySecret),
-               make_external_node('Id', CanonicalID),
-               make_external_node('Status', StatusStr)],
+    Content = [make_external_node(K, V)
+               || {K, V} <- [{'Email', Email},
+                             {'DisplayName', DisplayName},
+                             {'Name', Name},
+                             {'KeyId', KeyID},
+                             {'KeySecret', KeySecret},
+                             {'Id', CanonicalID},
+                             {'Status', StatusStr}]],
     make_internal_node('User', Content).
+
+
+role_record_to_xml(Role) ->
+    export_xml([role_node(Role)]).
+
+role_records_to_xml(Roles) ->
+    NN = [role_node(R) || R <- Roles],
+    export_xml([make_internal_node('Roles', NN)]).
+
+role_node(?S3_ROLE{arn = Arn,
+                   assume_role_policy_document = AssumeRolePolicyDocument,
+                   create_date = CreateDate,
+                   description = Description,
+                   max_session_duration = MaxSessionDuration,
+                   path = Path,
+                   permissions_boundary = PermissionsBoundary,
+                   role_id = RoleId,
+                   role_last_used = RoleLastUsed,
+                   role_name = RoleName,
+                   tags = Tags}) ->
+    Content = [make_external_node(K, V)
+               || {K, V} <- [{'Arn', make_arn(Arn)},
+                             {'AssumeRolePolicyDocument', AssumeRolePolicyDocument},
+                             {'CreateDate', CreateDate},
+                             {'MaxSessionDuration', MaxSessionDuration},
+                             {'Path', Path},
+                             {'PermissionsBoundary', PermissionsBoundary},
+                             {'RoleId', RoleId},
+                             {'RoleLastUsed', RoleLastUsed},
+                             {'RoleName', RoleName},
+                             {'Tags', make_tags(Tags)}
+    make_internal_node('User', Content).
+
+make_arn(?S3_ARN{provider = Provider,
+                 service = Service,
+                 region = Region,
+                 id = Id,
+                 path = Path}) ->
+    iolist_to_binary([Provider, Service, Region, Id, Path]).
+
+make_tags(TT) ->
+    
+
+%% @doc Convert value depending on its type into strings
+format_value(undefined) ->
+    [];
+format_value(Val) when is_atom(Val) ->
+    atom_to_list(Val);
+format_value(Val) when is_binary(Val) ->
+    binary_to_list(Val);
+format_value(Val) when is_integer(Val) ->
+    integer_to_list(Val);
+format_value(Val) when is_list(Val) ->
+    Val;
+format_value(Val) when is_float(Val) ->
+    io_lib:format("~p", [Val]).
+
 
 %% ===================================================================
 %% Eunit tests

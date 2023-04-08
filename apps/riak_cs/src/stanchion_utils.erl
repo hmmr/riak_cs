@@ -182,16 +182,7 @@ create_role(Fields) ->
     case riak_connection() of
         {ok, RiakPid} ->
             try
-                case get_role(Role?S3_ROLE.role_id) of
-                    true ->
-                        logger:info("Role \"~s\" already exists", [Role?S3_ROLE.role_id]),
-                        {error, already_exists};
-                    {false, _} ->
-                        save_role(Role, RiakPid);
-                end
-            catch T:E:ST ->
-                    logger:error("Error creating role ~s: ~p. Stacktrace: ~p", [Role?S3_ROLE.role_id, {T, E}, ST]),
-                    {error, {T, E}}
+                save_role(Role, RiakPid);
             after
                 close_riak_connection(RiakPid)
             end;

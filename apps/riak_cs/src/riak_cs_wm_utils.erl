@@ -68,7 +68,8 @@
          extract_date/1,
          check_timeskew/1,
          content_length/1,
-         valid_entity_length/3
+         valid_entity_length/3,
+         role_access_authorize_helper/3
         ]).
 
 -include("riak_cs.hrl").
@@ -200,7 +201,7 @@ handle_auth_admin(RD, Ctx, undefined, true) ->
     {false, RD, Ctx};
 handle_auth_admin(RD, Ctx, undefined, false) ->
     %% anonymous access disallowed
-    riak_cs_wm_utils:deny_access(RD, Ctx);
+    deny_access(RD, Ctx);
 handle_auth_admin(RD, Ctx, User, false) ->
     UserKeyId = User?RCS_USER.key_id,
     case riak_cs_config:admin_creds() of
@@ -211,7 +212,7 @@ handle_auth_admin(RD, Ctx, User, false) ->
             {false, RD, Ctx};
         _ ->
             %% non-admin account is not allowed -> 403
-            Res = riak_cs_wm_utils:deny_access(RD, Ctx),
+            Res = deny_access(RD, Ctx),
             riak_cs_dtrace:dt_wm_return(?MODULE, <<"forbidden">>, [], [<<"true">>]),
             Res
     end.
@@ -1123,6 +1124,13 @@ valid_entity_length(MaxLen, RD, #rcs_context{response_module=ResponseMod,
         _ ->
             {true, RD, Ctx}
     end.
+
+
+-spec object_access_authorize_helper(atom(), #wm_reqdata{}, #rcs_context{}) ->
+          authorized_response().
+role_access_authorize_helper(Method, RD, Ctx) ->
+    logger:debug("STUB role_access_authorize_helper, returning true"),
+    {true, RD, Ctx}.
 
 %% ===================================================================
 %% Internal functions
