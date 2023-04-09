@@ -150,7 +150,6 @@ acl_owner(?ACL{owner=Owner}) ->
 acl_owner(#acl_v1{owner=Owner}) ->
     Owner.
 
--spec owner_content({string(), string()}) -> [external_node()].
 owner_content({OwnerName, OwnerId}) ->
     [make_external_node('ID', OwnerId),
      make_external_node('DisplayName', OwnerName)].
@@ -261,15 +260,6 @@ user_to_xml_owner(?RCS_USER{canonical_id=CanonicalId, display_name=Name}) ->
     make_internal_node('Owner', [make_external_node('ID', [CanonicalId]),
                                  make_external_node('DisplayName', [Name])]).
 
-make_internal_node(Name, Content) ->
-    {Name, Content}.
-
-make_internal_node(Name, Attributes, Content) ->
-    {Name, Attributes, Content}.
-
-make_external_node(Name, Content) ->
-    {Name, [format_value(Content)]}.
-
 %% @doc Assemble the xml for the set of grantees for an acl.
 make_grants(Grantees) ->
     make_grants(Grantees, []).
@@ -362,18 +352,21 @@ role_node(?S3_ROLE{arn = Arn,
                    role_last_used = RoleLastUsed,
                    role_name = RoleName,
                    tags = Tags}) ->
-    Content = [make_external_node(K, V)
-               || {K, V} <- [{'Arn', make_arn(Arn)},
-                             {'AssumeRolePolicyDocument', AssumeRolePolicyDocument},
-                             {'CreateDate', CreateDate},
-                             {'MaxSessionDuration', MaxSessionDuration},
-                             {'Path', Path},
-                             {'PermissionsBoundary', PermissionsBoundary},
-                             {'RoleId', RoleId},
-                             {'RoleLastUsed', RoleLastUsed},
-                             {'RoleName', RoleName},
-                             {'Tags', make_tags(Tags)}
-    make_internal_node('User', Content).
+    Content = [{'Arn', make_arn(Arn)},
+               [{'AssumeRolePolicyDocument', AssumeRolePolicyDocument} || AssumeRolePolicyDocument /= undefined],
+               {'CreateDate', CreateDate},
+               [{'Description', Description} || Description /= undefined],
+               [{'MaxSessionDuration', MaxSessionDuration} || MaxSessionDuration /= undefined],
+               {'Path', Path},
+               [{'PermissionsBoundary', make_permission_boundary(PermissionsBoundary)} || PermissionsBoundary /= undefined],
+               {'RoleId', RoleId},
+               [{'RoleLastUsed', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
+                                  {'xsi:type', "RoleLastUsed"}],
+                 make_role_last_used(RoleLastUsed)} || RoleLastUsed /= undefined],
+               {'RoleName', RoleName},
+               [{'Tags', make_tags(Tags)} || Tags /= undefined,
+                                             Tags /= []]],
+    {'Role', Content}.
 
 make_arn(?S3_ARN{provider = Provider,
                  service = Service,
@@ -382,8 +375,28 @@ make_arn(?S3_ARN{provider = Provider,
                  path = Path}) ->
     iolist_to_binary([Provider, Service, Region, Id, Path]).
 
+make_role_last_used(?S3_ROLE_LAST_USED{last_used_date = LastUsedDate,
+                                       region = Region}) ->
+    [{'LastUsedDate', LastUsedDate} || LastUsedDate =/= undefined ]
+        ++ [{'Region', Region} || Region =/= undefined].
+
 make_tags(TT) ->
-    
+    [make_tag(T) || T <- TT].
+make_tag(?S3_TAG{key = Key,
+                 value = Value}) ->
+    [{'Key', Key}, {'Value', Value}].
+
+
+
+make_internal_node(Name, Content) ->
+    {Name, Content}.
+
+make_internal_node(Name, Attributes, Content) ->
+    {Name, Attributes, Content}.
+
+make_external_node(Name, Content) ->
+    {Name, [format_value(Content)]}.
+
 
 %% @doc Convert value depending on its type into strings
 format_value(undefined) ->

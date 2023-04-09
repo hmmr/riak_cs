@@ -144,32 +144,22 @@ produce_xml(RD, #rcs_context{}=Ctx) ->
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.
 
-finish_request(RD, Ctx=#rcs_context{riak_client=undefined}) ->
+finish_request(RD, Ctx=#rcs_context{riak_client = undefined}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"finish_request">>, [0], []),
     {true, RD, Ctx};
 finish_request(RD, Ctx=#rcs_context{riak_client=RcPid}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"finish_request">>, [1], []),
     riak_cs_riak_client:checkin(RcPid),
     riak_cs_dtrace:dt_wm_return(?MODULE, <<"finish_request">>, [1], []),
-    {true, RD, Ctx#rcs_context{riak_client=undefined}}.
+    {true, RD, Ctx#rcs_context{riak_client = undefined}}.
 
 %% -------------------------------------------------------------------
 %% Internal functions
 %% -------------------------------------------------------------------
 
-admin_check(true, RD, Ctx) ->
-    {false, RD, Ctx#rcs_context{user=undefined}};
-admin_check(false, RD, Ctx) ->
-    riak_cs_wm_utils:deny_access(RD, Ctx).
-
 %% @doc Calculate the etag of a response body
 etag(Body) ->
         riak_cs_utils:etag_from_binary(riak_cs_utils:md5(Body)).
-
-set_resp_data(ContentType, RD, #rcs_context{user=User}) ->
-    UserDoc = format_user_record(User, ContentType),
-    wrq:set_resp_body(UserDoc, RD).
-
 
 role_json_filter({ItemKey, ItemValue}, Acc) ->
     case ItemKey of
@@ -191,66 +181,38 @@ role_json_filter({ItemKey, ItemValue}, Acc) ->
             Acc
     end.
 
-user_key(RD) ->
-    case wrq:path_tokens(RD) of
-        [KeyId|_] -> mochiweb_util:unquote(KeyId);
-        _         -> []
-    end.
-
--spec user_xml_filter(#xmlText{} | #xmlElement{}, [{atom(), term()}]) -> [{atom(), term()}].
 role_xml_filter(#xmlText{}, Acc) ->
     Acc;
 role_xml_filter(Element, Acc) ->
     case Element#xmlElement.name of
-        'Email' ->
-            [Content | _] = Element#xmlElement.content,
-            case is_record(Content, xmlText) of
-                true ->
-                    [{email, Content#xmlText.value} | Acc];
-                false ->
-                    Acc
-            end;
-        'Name' ->
-            [Content | _] = Element#xmlElement.content,
-            case is_record(Content, xmlText) of
-                true ->
-                    [{name, Content#xmlText.value} | Acc];
-                false ->
-                    Acc
-            end;
-        'Status' ->
-            [Content | _] = Element#xmlElement.content,
-            case is_record(Content, xmlText) of
-                true ->
-                    case Content#xmlText.value of
-                        "enabled" ->
-                            [{status, enabled} | Acc];
-                        "disabled" ->
-                            [{status, disabled} | Acc];
-                        _ ->
-                            Acc
-                    end;
-                false ->
-                    Acc
-            end;
-        'NewKeySecret' ->
-            [Content | _] = Element#xmlElement.content,
-            case is_record(Content, xmlText) of
-                true ->
-                    case Content#xmlText.value of
-                        "true" ->
-                            [{new_key_secret, true} | Acc];
-                        "false" ->
-                            [{new_key_secret, false} | Acc];
-                        _ ->
-                            Acc
-                    end;
-                false ->
-                    Acc
-            end;
-        _ ->
-            Acc
+        'AssumeRolePolicyDocument' ->
+            extract_to_acc(Element, assume_role_policy_document, Acc);
+        'Description' ->
+            extract_to_acc(Element, description, Acc);
+        'MaxSessionDuration' ->
+            extract_to_acc(Element, max_session_duration, Acc);
+        'Path' ->
+            extract_to_acc(Element, path, Acc);
+        'PermissionsBoundary' ->
+            extract_to_acc(Element, permissions_boundary, Acc);
+        'RoleName' ->
+            extract_to_acc(Element, role_name, Acc);
+        MaybeTag ->
+            maybe_extract_tag_to_acc(Element, MaybeTag, Acc)
     end.
+
+extract_to_acc(E, N, Q) ->
+    [A | _] = E#xmlElement.content,
+    case is_record(A, xmlText) of
+        true ->
+            [{N, Content#xmlText.value} | Q];
+        false ->
+            Q
+    end.
+
+maybe_extract_tag_to_acc(E, Tag, Acc) ->
+    ?LOG_DEBUG("STUB pretend adding tag ~p from element ~p", [Tag, E]),
+    Acc.
 
 role_response({ok, Role}, ContentType, RD, Ctx) ->
     Doc = format_role_record(Role, ContentType),
@@ -258,13 +220,10 @@ role_response({ok, Role}, ContentType, RD, Ctx) ->
         wrq:set_resp_body(Doc,
                           wrq:set_resp_header("Content-Type", ContentType, RD)),
     {true, WrittenRD, Ctx};
-user_response({halt, 200}, ContentType, RD, Ctx) ->
-    {{halt, 200}, set_resp_data(ContentType, RD, Ctx), Ctx};
-user_response({error, Reason}, _, RD, Ctx) ->
+role_response({error, Reason}, _, RD, Ctx) ->
     riak_cs_s3_response:api_error(Reason, RD, Ctx).
 
--spec format_role_record(role(), string()) -> binary().
-format_user_record(User, ?JSON_TYPE) ->
-    riak_cs_json:to_json(User);
-format_user_record(User, ?XML_TYPE) ->
-    riak_cs_xml:to_xml(User).
+format_role_record(Role, ?JSON_TYPE) ->
+    riak_cs_json:to_json(Role);
+format_role_record(Role, ?XML_TYPE) ->
+    riak_cs_xml:to_xml(Role).

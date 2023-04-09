@@ -163,6 +163,15 @@
              , value :: string()
              }
        ).
+-type tag() :: #tag{}.
+-define(?S3_TAG, #tag).
+
+-record(role_last_used, { last_used_date :: string()
+                        , region :: string()
+                        }
+       ).
+-type role_last_used() :: #role_last_used{}.
+-define(?S3_ROLE_LAST_USED, #role_last_used).
 
 -record(role_v1, { arn :: arn()
                  , assume_role_policy_document :: policy()
@@ -172,7 +181,7 @@
                  , path :: string()
                  , permissions_boundary :: permissions_boundary()
                  , role_id :: string()
-                 , role_last_used :: erlang:timestamp()
+                 , role_last_used :: role_last_used()
                  , role_name :: string()
                  , tags :: [tag()]
                  }

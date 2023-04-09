@@ -39,7 +39,7 @@
          delete_bucket_policy/2,
          to_bucket_name/2,
          update_user/2,
-         get_role/1
+         get_role/2,
          sha_mac/2
         ]).
 
@@ -182,7 +182,7 @@ create_role(Fields) ->
     case riak_connection() of
         {ok, RiakPid} ->
             try
-                save_role(Role, RiakPid);
+                save_role(Role, RiakPid)
             after
                 close_riak_connection(RiakPid)
             end;
@@ -753,12 +753,12 @@ get_user(KeyId, RiakPid) ->
     BinKey = iolist_to_binary(KeyId),
     case fetch_object(?USER_BUCKET, BinKey, RiakPid) of
         {ok, {Obj, KeepDeletedBuckets}} ->
-            from_riakc_obj(Obj, KeepDeletedBuckets);
+            user_from_riakc_obj(Obj, KeepDeletedBuckets);
         Error ->
             Error
     end.
 
-from_riakc_obj(Obj, KeepDeletedBuckets) ->
+user_from_riakc_obj(Obj, KeepDeletedBuckets) ->
     case riakc_obj:value_count(Obj) of
         1 ->
             User = binary_to_term(riakc_obj:get_value(Obj)),
@@ -907,17 +907,34 @@ update_user_buckets(delete, User, Bucket) ->
             User?RCS_USER{buckets=UpdBuckets}
     end.
 
-
+-spec get_role(string(), pid()) -> {ok, role()} | {error, no_value}.
 get_role(Id, RiakPid) ->
     %% Check for and resolve siblings to get a
     %% coherent view of the bucket ownership.
     BinKey = iolist_to_binary(Id),
     case fetch_object(?IAM_BUCKET, BinKey, RiakPid) of
-        {ok, {Obj, KeepDeletedBuckets}} ->
-            from_riakc_obj(Obj, KeepDeletedBuckets);
+        {ok, {Obj, _KeepDeletedBuckets}} ->
+            role_from_riakc_obj(Obj);
         Error ->
             Error
     end.
+
+role_from_riakc_obj(Obj) ->
+    case riakc_obj:value_count(Obj) of
+        1 ->
+            Role = binary_to_term(riakc_obj:get_value(Obj)),
+            {ok, Role};
+        0 ->
+            {error, no_value};
+        _ ->
+            Values = [binary_to_term(Value) ||
+                         Value <- riakc_obj:get_values(Obj),
+                         Value /= <<>>  % tombstone
+                     ],
+            Role = hd(Values),
+            {ok, Role}
+    end.
+
 
 save_role(Role, RiakPid) ->
     RoleId = ensure_inique_role_id(RiakPid),
