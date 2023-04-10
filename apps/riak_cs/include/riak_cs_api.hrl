@@ -22,14 +22,179 @@
 -ifndef(RIAK_CS_API_HRL).
 -define(RIAK_CS_API_HRL, included).
 
--record(list_buckets_response_v1, {
-          %% the user record
-          user :: rcs_user(),
+-include("s3_api.hrl").
 
-          %% the list of bucket records
-          buckets :: [cs_bucket()]
-         }).
--type list_buckets_response() :: #list_buckets_response_v1{}.
--define(LBRESP, #list_buckets_response_v1).
+%% see also: http://docs.amazonwebservices.com/AmazonS3/latest/API/RESTBucketGET.html
+%% non mandatory keys have `| undefined' as a
+%% type option.
+
+
+%% === objects ===
+-type list_objects_req_type() :: objects | versions.
+
+-record(list_objects_request,
+        {
+         req_type :: list_objects_req_type(),
+
+         %% the name of the bucket
+         name :: binary(),
+
+         %% how many keys to return in the response
+         max_keys :: non_neg_integer(),
+
+         %% a 'starts-with' parameter
+         prefix :: binary() | undefined,
+
+         %% a binary to group keys by
+         delimiter :: binary() | undefined,
+
+         %% the key and version_id to start with
+         marker :: binary() | undefined,
+         version_id_marker :: binary() | undefined
+        }).
+-type list_object_request() :: #list_objects_request{}.
+-define(LOREQ, #list_objects_request).
+
+-type next_marker() :: 'undefined' | binary().
+
+-record(list_objects_response,
+        {
+         %% Params just echoed back from the request --------------------------
+
+         %% the name of the bucket
+         name :: binary(),
+
+         %% how many keys were requested to be
+         %% returned in the response
+         max_keys :: non_neg_integer(),
+
+         %% a 'starts-with' parameter
+         prefix :: binary() | undefined,
+
+         %% a binary to group keys by
+         delimiter :: binary() | undefined,
+
+         %% the marker used in the _request_
+         marker :: binary() | undefined,
+         %% the (optional) marker to use for pagination
+         %% in the _next_ request
+         next_marker :: next_marker(),
+         %% (marker and next_marker not used in ListObjectsV2)
+
+         %% The actual response -----------------------------------------------
+         is_truncated :: boolean(),
+
+         contents :: [list_objects_key_content()],
+
+         common_prefixes :: list_objects_common_prefixes()
+        }).
+
+-type list_objects_response() :: #list_objects_response{}.
+-define(LORESP, #list_objects_response).
+
+-record(list_objects_key_content,
+        {
+         key :: binary(),
+         last_modified :: term(),
+         etag :: binary(),
+         size :: non_neg_integer(),
+         owner :: list_objects_owner(),
+         storage_class :: binary()
+        }).
+-type list_objects_key_content() :: #list_objects_key_content{}.
+-define(LOKC, #list_objects_key_content).
+
+
+-record(list_object_versions_response,
+        {
+         %% Params just echoed back from the request --------------------------
+
+         %% the name of the bucket
+         name :: binary(),
+
+         %% how many keys were requested to be
+         %% returned in the response
+         max_keys :: non_neg_integer(),
+
+         %% a 'starts-with' parameter
+         prefix :: binary() | undefined,
+
+         %% a binary to group keys by
+         delimiter :: binary() | undefined,
+
+         %% the marker used in the _request_
+         key_marker :: binary() | undefined,
+         version_id_marker :: binary() | undefined,
+
+         %% the (optional) marker to use for pagination
+         %% in the _next_ request
+         next_key_marker :: next_marker(),
+         next_version_id_marker :: next_marker(),
+
+         %% The actual response -----------------------------------------------
+         is_truncated :: boolean(),
+
+         contents :: [list_object_versions_key_content()],
+
+         common_prefixes :: list_objects_common_prefixes()
+        }).
+
+-type list_object_versions_response() :: #list_object_versions_response{}.
+-define(LOVRESP, #list_object_versions_response).
+
+-record(list_object_versions_key_content,
+        {
+         key :: binary(),
+         last_modified :: term(),
+         etag :: binary(),
+         is_latest :: boolean(),
+         version_id :: binary(),
+         size :: non_neg_integer(),
+         owner :: list_objects_owner(),
+         storage_class :: binary()
+        }).
+-type list_object_versions_key_content() :: #list_object_versions_key_content{}.
+-define(LOVKC, #list_object_versions_key_content).
+
+-record(list_objects_owner, {
+        id :: binary(),
+        display_name :: binary()}).
+-type list_objects_owner() :: #list_objects_owner{}.
+
+-type list_objects_common_prefixes() :: list(binary()).
+
+-define(LIST_OBJECTS_CACHE, list_objects_cache).
+-define(ENABLE_CACHE, true).
+-define(CACHE_TIMEOUT, timer:minutes(15)).
+-define(MIN_KEYS_TO_CACHE, 2000).
+-define(MAX_CACHE_BYTES, 104857600). % 100MB
+-define(KEY_LIST_MULTIPLIER, 1.1).
+-define(FOLD_OBJECTS_FOR_LIST_KEYS, true).
+
+
+%% === buckets ===
+
+-record(list_buckets_response,
+        {
+         %% the user record
+         user :: rcs_user(),
+
+         %% the list of bucket records
+         buckets :: [cs_bucket()]
+        }).
+-type list_buckets_response() :: #list_buckets_response{}.
+-define(LBRESP, #list_buckets_response).
+
+
+%% === roles ===
+
+-record(list_roles_response,
+        {
+         marker :: binary() | undefined,
+         is_truncated :: boolean(),
+         roles :: [role()]
+        }).
+-type list_roles_response() :: #list_roles_response{}.
+-define(LRRESP, #list_roles_response).
 
 -endif.

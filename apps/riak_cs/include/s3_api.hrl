@@ -97,12 +97,14 @@
                              | 'DateGreaterThanEquals' | dategteq.
 
 -define(DATE_CONDITION_ATOMS,
-        [ 'DateEquals',            dateeq,
-          'DateNotEquals',         dateneq,
-          'DateLessThan',          datelt,
-          'DateLessThanEquals',    datelteq,
-          'DateGreaterThan',       dategt,
-          'DateGreaterThanEquals', dategteq]).
+        [ 'DateEquals',            dateeq
+        , 'DateNotEquals',         dateneq
+        , 'DateLessThan',          datelt
+        , 'DateLessThanEquals',    datelteq
+        , 'DateGreaterThan',       dategt
+        , 'DateGreaterThanEquals', dategteq
+        ]
+       ).
 
 
 -type ip_addr_condition_type() :: 'IpAddress' | 'NotIpAddress'.
@@ -158,20 +160,24 @@
                               , permissions_boundary_type ::string()
                               }
 ).
+-type permissions_boundary() :: #permissions_boundary{}.
+-define(S3_PERMISSION_BOUNDARY, #permissions_boundary).
+
 
 -record(tag, { key :: string()
              , value :: string()
              }
        ).
 -type tag() :: #tag{}.
--define(?S3_TAG, #tag).
+-define(S3_TAG, #tag).
+
 
 -record(role_last_used, { last_used_date :: string()
                         , region :: string()
                         }
        ).
 -type role_last_used() :: #role_last_used{}.
--define(?S3_ROLE_LAST_USED, #role_last_used).
+-define(S3_ROLE_LAST_USED, #role_last_used).
 
 -record(role_v1, { arn :: arn()
                  , assume_role_policy_document :: policy()

@@ -29,9 +29,6 @@
 -compile(nowarn_export_all).
 
 -dialyzer([ {nowarn_function, fromlist_access_v1/1}
-          , {nowarn_function, fromlist_rcs_context/1}
-          , {nowarn_function, fromlist_key_context/1}
-          , {nowarn_function, fromlist_stanchion_context/1}
           , {nowarn_function, fromlist_lfs_manifest_v2/1}
           , {nowarn_function, fromlist_lfs_manifest_v3/1}
           , {nowarn_function, fromlist_moss_bucket/1}
@@ -56,9 +53,6 @@
           , {nowarn_function, frommap_part_manifest_v1/1}
           , {nowarn_function, frommap_rcs_user_v2/1}
           , {nowarn_function, new_access_v1/1}
-          , {nowarn_function, new_rcs_context/1}
-          , {nowarn_function, new_key_context/1}
-          , {nowarn_function, new_stanchion_context/1}
           , {nowarn_function, new_lfs_manifest_v2/1}
           , {nowarn_function, new_lfs_manifest_v3/1}
           , {nowarn_function, new_moss_bucket/1}

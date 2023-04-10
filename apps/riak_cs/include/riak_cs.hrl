@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -21,6 +21,9 @@
 
 -ifndef(RIAK_CS_HRL).
 -define(RIAK_CS_HRL, included).
+
+-include("s3_api.hrl").
+-include("riak_cs_web.hrl").
 
 -define(RCS_VERSION, 030200).
 

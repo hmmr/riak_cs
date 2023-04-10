@@ -25,7 +25,7 @@
 -module(riak_cs_json).
 
 -include("riak_cs.hrl").
--include("list_objects.hrl").
+-include("riak_cs_api.hrl").
 -include("oos_api.hrl").
 -include("s3_api.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -186,6 +186,7 @@ arn_object(?S3_ARN{provider = Provider,
         ],
     {struct, S}.
 
+principal_object(
 
 statement_object(?S3_STATEMENT{sid = Sid,
                                effect = Effect,

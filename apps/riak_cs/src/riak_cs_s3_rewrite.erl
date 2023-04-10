@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2015 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -140,7 +140,7 @@ rewrite_path(_Method, Path, QS, Bucket) ->
                   ]).
 
 iam_path_from_qs(QS) ->
-    Action = proplists:get_value("Action", mochiweb_util:parse_qs(QueryString)),
+    Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),
     case Action of
         A when A =:= "GetRole";
                A =:= "CreateRole";

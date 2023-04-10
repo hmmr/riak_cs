@@ -25,7 +25,6 @@
 -export([identify/2, authenticate/4]).
 
 -include("riak_cs.hrl").
--include("saml_api.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
 -ifdef(TEST).

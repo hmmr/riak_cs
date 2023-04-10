@@ -29,7 +29,6 @@
 
 -include("riak_cs.hrl").
 -include("riak_cs_api.hrl").
--include("list_objects.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
 -spec respond(term(), #wm_reqdata{}, #rcs_context{}) ->
