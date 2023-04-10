@@ -73,14 +73,14 @@
 %% @doc evaluates the policy and returns the policy allows, denies or
 %% not says nothing about this access. Usually in case of undefined,
 %% the owner access must be accepted and others must be refused.
--spec eval(access(), policy() | undefined | binary() ) -> boolean() | undefined.
+-spec eval(access(), amz_policy() | undefined | binary() ) -> boolean() | undefined.
 eval(_, undefined) -> undefined;
 eval(Access, JSON) when is_binary(JSON) ->
     case policy_from_json(JSON) of
         {ok, Policy} ->  eval(Access, Policy);
         {error, _} = E -> E
     end;
-eval(Access, ?S3_POLICY{statement=Stmts} = Policy) ->
+eval(Access, ?AMZ_POLICY{statement=Stmts} = Policy) ->
     case check_version(Policy) of
         true -> aggregate_evaluation(Access, Stmts);
         false -> false
@@ -96,20 +96,20 @@ aggregate_evaluation(Access, [Stmt|Stmts]) ->
 
 
 % @doc  semantic validation of policy
--spec check_policy(access(), policy()) -> ok | {error, atom()}.
+-spec check_policy(access(), amz_policy()) -> ok | {error, atom()}.
 check_policy(#access_v1{bucket=B} = _Access,
              Policy) ->
 
     case check_version(Policy) of
-        false -> {error, {malformed_policy_version, Policy?S3_POLICY.version}};
+        false -> {error, {malformed_policy_version, Policy?AMZ_POLICY.version}};
         true ->
             case check_all_resources(B, Policy) of
                 false -> {error, malformed_policy_resource};
                 true ->
-                    case check_principals(Policy?S3_POLICY.statement) of
+                    case check_principals(Policy?AMZ_POLICY.statement) of
                         false -> {error, malformed_policy_principal};
                         true ->
-                            case check_actions(Policy?S3_POLICY.statement) of
+                            case check_actions(Policy?AMZ_POLICY.statement) of
                                 false -> {error, malformed_policy_action};
                                 true -> ok
                             end
@@ -117,12 +117,12 @@ check_policy(#access_v1{bucket=B} = _Access,
             end
     end.
 
--spec check_version(policy()) -> boolean().
-check_version(?S3_POLICY{version = ?AMZ_DEFAULT_VERSION}) ->
+-spec check_version(amz_policy()) -> boolean().
+check_version(?AMZ_POLICY{version = ?AMZ_DEFAULT_VERSION}) ->
     true;
-check_version(?S3_POLICY{version = ?AMZ_POLICY_OLD_VERSION}) ->
+check_version(?AMZ_POLICY{version = ?AMZ_POLICY_OLD_VERSION}) ->
     true;
-check_version(?S3_POLICY{version = Version}) ->
+check_version(?AMZ_POLICY{version = Version}) ->
     logger:info("unknown version: ~p", [Version]),
     false.
 
@@ -165,7 +165,7 @@ check_principal([_|T]) ->
     check_principal(T).
 
 % @doc check if the policy is set to proper bucket by checking arn
-check_all_resources(BucketBin, ?S3_POLICY{statement=Stmts} = _Policy) ->
+check_all_resources(BucketBin, ?AMZ_POLICY{statement = Stmts} = _Policy) ->
     CheckFun = fun(Stmt) ->
                        check_all_resources(BucketBin, Stmt)
                end,
@@ -193,7 +193,7 @@ reqdata_to_access(RD, Target, ID) ->
             key    = Key
            }.
 
--spec policy_from_json(JSON::binary()) -> {ok, policy()} | {error, term()}.
+-spec policy_from_json(JSON::binary()) -> {ok, amz_policy()} | {error, term()}.
 policy_from_json(JSON) ->
     %% TODO: stop using exception and start some monadic validation and parsing.
     case catch(mochijson2:decode(JSON)) of
@@ -214,13 +214,13 @@ policy_from_json(JSON) ->
                       Stmts ->
                          case {Version, ID} of
                              {undefined, <<"undefined">>} ->
-                                 {ok, ?S3_POLICY{statement=Stmts}};
+                                 {ok, ?AMZ_POLICY{statement = Stmts}};
                              {undefined, _} ->
-                                 {ok, ?S3_POLICY{id=ID, statement=Stmts}};
+                                 {ok, ?AMZ_POLICY{id = ID, statement = Stmts}};
                              {_, <<"undefined">>} ->
-                                 {ok, ?S3_POLICY{version=Version, statement=Stmts}};
+                                 {ok, ?AMZ_POLICY{version = Version, statement = Stmts}};
                              _ ->
-                                 {ok, ?S3_POLICY{id=ID, version=Version, statement=Stmts}}
+                                 {ok, ?AMZ_POLICY{id = ID, version = Version, statement = Stmts}}
                          end
                  end;
         {error, _Reason} = E ->
@@ -230,11 +230,11 @@ policy_from_json(JSON) ->
             {error, malformed_policy_json}
     end.
 
--spec policy_to_json_term(policy()) -> JSON::binary().
-policy_to_json_term(?S3_POLICY{version = Version,
-                               id = ID, statement = Stmts0})
-  when Version =:= ?AMZ_POLICY_OLD_VERSION
-       orelse Version =:= ?AMZ_DEFAULT_VERSION ->
+-spec policy_to_json_term(amz_policy()) -> JSON::binary().
+policy_to_json_term(?AMZ_POLICY{version = Version,
+                                id = ID, statement = Stmts0})
+  when Version =:= ?AMZ_POLICY_OLD_VERSION;
+       Version =:= ?AMZ_DEFAULT_VERSION ->
     Stmts = lists:map(fun statement_to_pairs/1, Stmts0),
     % hope no unicode included
     Policy = [{"Version", Version},{"Id", ID},{"Statement",Stmts}],
@@ -258,7 +258,7 @@ log_supported_actions()->
     ok.
 
 %% @doc Fetch the policy for a bucket
--type policy_from_meta_result() :: {'ok', policy()} | {'error', 'policy_undefined'}.
+-type policy_from_meta_result() :: {'ok', amz_policy()} | {'error', 'policy_undefined'}.
 -type bucket_policy_result() :: policy_from_meta_result() |
                                 {'error', 'notfound'} |
                                 {'error', 'multiple_bucket_owners'}.
@@ -322,7 +322,7 @@ resolve_bucket_policies(Policies) ->
 newer_policy(Policy1, ?POLICY_UNDEF) ->
     Policy1;
 newer_policy({ok, Policy1}, {ok, Policy2})
-  when Policy1?S3_POLICY.creation_time >= Policy2?S3_POLICY.creation_time ->
+  when Policy1?AMZ_POLICY.creation_time >= Policy2?AMZ_POLICY.creation_time ->
     {ok, Policy1};
 newer_policy(_, Policy2) ->
     Policy2.

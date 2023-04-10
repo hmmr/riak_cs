@@ -146,12 +146,27 @@
        ).
 -define(S3_STATEMENT, #statement).
 
--record(policy_v1, { version = <<"2008-10-17">> :: binary()  % no other value is allowed than default
-                   , id = undefined :: undefined | binary()  % had better use uuid: should be UNIQUE
-                   , statement = [] :: [#statement{}]
-                   , creation_time = os:timestamp() :: erlang:timestamp()
+-record(amz_policy, { version = <<"2008-10-17">> :: binary()  % no other value is allowed than default
+                    , id = undefined :: undefined | binary()  % had better use uuid: should be UNIQUE
+                    , statement = [] :: [#statement{}]
+                    , creation_time = os:timestamp(millisecond) :: erlang:timestamp()
          }).
+-type amz_policy() :: #amz_policy{}.
+-define(AMZ_POLICY, #amz_policy).
 
+-record(policy_v1, { arn :: arn() | undefined
+                   , attachment_count :: non_neg_integer() | undefined
+                   , create_date = os:timestamp(millisecond) :: os:timestamp() | undefined
+                   , default_version_id :: string() | undefined
+                   , description :: string() | undefined
+                   , is_attachable :: boolean() | undefined
+                   , path :: string() | undefined
+                   , permissions_boundary_usage_count :: non_neg_integer() | undefined
+                   , policy_id :: string() | undefined
+                   , policy_name :: string() | undefined
+                   , tags :: [tag()] | undefined
+                   , update_date :: os:timestamp() | undefined
+         }).
 -type policy() :: #policy_v1{}.
 -define(S3_POLICY, #policy_v1).
 
@@ -181,7 +196,7 @@
 
 -record(role_v1, { arn :: arn()
                  , assume_role_policy_document :: policy()
-                 , create_date = os:timestamp() :: erlang:timestamp()
+                 , create_date = os:timestamp(millisecond) :: erlang:timestamp()
                  , description :: string()
                  , max_session_duration :: non_neg_integer()
                  , path :: string()

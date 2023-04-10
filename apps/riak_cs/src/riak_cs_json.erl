@@ -186,34 +186,43 @@ arn_object(?S3_ARN{provider = Provider,
         ],
     {struct, S}.
 
-principal_object(
+tag_object(?S3_TAG{key = Key,
+                   value = Value}) ->
+    S = [{key, Key},
+         {value, Value}],
+    {struct, S}.
 
-statement_object(?S3_STATEMENT{sid = Sid,
-                               effect = Effect,
-                               principal = Principal,
-                               action = Action,
-                               not_action = NotAction,
-                               resource = Resource,
-                               condition_block = ConditionBlock}) ->
-    S = [{sid, Sid},
-         {effect, Effect},
-         {principal, principal_object(Principal)},
-         {action, Action},
-         {not_action, NotAction},
-         {resource, arn_object()},
-         {condition_block, [condition_pair_object(A) || A <- ConditionBlock]}
+permissions_boundary_object(?S3_PERMISSION_BOUNDARY{permissions_boundary_arn = PermissionsBoundaryArn,
+                                                    permissions_boundary_type = PermissionsBoundaryType}) ->
+    S = [{permissions_boundary_arn, arn_object(PermissionsBoundaryArn)},
+         {permissions_boundary_type, PermissionsBoundaryType}
         ],
     {struct, S}.
 
-policy_object(?S3_POLICY{version = Version,
-                         id = Id,
-                         statement = Statement,
-                         creation_time = CreationTime}) ->
-    S = [{version, Version},
-         {id, Id},
-         {statement, [statement_object(A) || A <- Statement]},
-         {creation_time, CreationTime}
-        ],
+policy_object(?S3_POLICY{arn = Arn,
+                         attachment_count = AttachmentCount,
+                         create_date = CreateDate,
+                         default_version_id = DefaultVersionId,
+                         description = Description,
+                         is_attachable = IsAttachable,
+                         path = Path,
+                         permissions_boundary_usage_count = PermissionsBoundaryUsageCount,
+                         policy_id = PolicyId,
+                         policy_name = PolicyName,
+                         tags = Tags,
+                         update_date = UpdateDate}) ->
+    S = [{arn, arn_object(Arn)},
+         {attachment_count, AttachmentCount},
+         {create_date, rts:iso8601(CreateDate)},
+         {default_version_id, DefaultVersionId},
+         {description, Description},
+         {is_attachable, IsAttachable},
+         {path, Path},
+         {permissions_boundary_usage_count, PermissionsBoundaryUsageCount},
+         {policy_id, PolicyId},
+         {policy_name, PolicyName},
+         {tags, [tag_object(A) || A <- Tags]},
+         {update_date, rts:iso8601(UpdateDate)}],
     {struct, S}.
 
 role_object(?S3_ROLE{arn = Arn,
@@ -233,7 +242,7 @@ role_object(?S3_ROLE{arn = Arn,
          {description, Description},
          {max_session_duration, MaxSessionDuration},
          {path, list_to_binary(Path)},
-         {permissions_boundary, permissions_binary_object(PermissionsBoundary)},
+         {permissions_boundary, permissions_boundary_object(PermissionsBoundary)},
          {role_id, list_to_binary(RoleId)},
          {role_last_used, RoleLastUsed},
          {role_name, list_to_binary(RoleName)},

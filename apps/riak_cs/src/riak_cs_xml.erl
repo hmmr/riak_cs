@@ -26,12 +26,11 @@
 
 -include("riak_cs.hrl").
 -include("riak_cs_api.hrl").
--include("list_objects.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
--include_lib("xmerl/include/xmerl.hrl").
 
 %% Public API
 -export([scan/1,
@@ -39,10 +38,10 @@
 
 -define(XML_SCHEMA_INSTANCE, "http://www.w3.org/2001/XMLSchema-instance").
 
--type attributes() :: [{atom(), string()}].
--type external_node() :: {atom(), [string()]}.
--type internal_node() :: {atom(), [internal_node() | external_node()]} |
-                         {atom(), attributes(), [internal_node() | external_node()]}.
+-type xml_attributes() :: [{atom(), string()}].
+-type xml_external_node() :: {atom(), [string()]}.
+-type xml_internal_node() :: {atom(), [xml_internal_node() | xml_external_node()]} |
+                         {atom(), xml_attributes(), [xml_internal_node() | xml_external_node()]}.
 
 %% these types should be defined in xmerl.hrl or xmerl.erl
 %% for now they're defined here for convenience.
@@ -56,15 +55,15 @@
 -export_type([xmlNode/0, xmlElement/0, xmlText/0]).
 
 %% Types for simple forms
--type tag() :: atom().
--type content() :: [element()].
--type element() :: {tag(), attributes(), content()} |
-                   {tag(), content()} |
-                   tag() |
+-type xml_tag() :: atom().
+-type xml_content() :: [xml_element()].
+-type xml_element() :: {xml_tag(), xml_attributes(), xml_content()} |
+                   {xml_tag(), xml_content()} |
+                   xml_tag() |
                    iodata() |
                    integer() |
                    float().         % Really Needed?
--type simple_form() :: content().
+-type simple_form() :: xml_content().
 
 %% ===================================================================
 %% Public API
@@ -103,7 +102,9 @@ to_xml(?RCS_USER{}=User) ->
 to_xml({users, Users}) ->
     user_records_to_xml(Users);
 to_xml(?S3_ROLE{}=Role) ->
-    role_record_to_xml(Role).
+    role_record_to_xml(Role);
+to_xml({roles, RR}) ->
+    role_records_to_xml(RR).
 
 
 %% ===================================================================
@@ -352,21 +353,22 @@ role_node(?S3_ROLE{arn = Arn,
                    role_last_used = RoleLastUsed,
                    role_name = RoleName,
                    tags = Tags}) ->
-    Content = [{'Arn', make_arn(Arn)},
-               [{'AssumeRolePolicyDocument', AssumeRolePolicyDocument} || AssumeRolePolicyDocument /= undefined],
-               {'CreateDate', CreateDate},
-               [{'Description', Description} || Description /= undefined],
-               [{'MaxSessionDuration', MaxSessionDuration} || MaxSessionDuration /= undefined],
-               {'Path', Path},
-               [{'PermissionsBoundary', make_permission_boundary(PermissionsBoundary)} || PermissionsBoundary /= undefined],
-               {'RoleId', RoleId},
-               [{'RoleLastUsed', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
-                                  {'xsi:type', "RoleLastUsed"}],
-                 make_role_last_used(RoleLastUsed)} || RoleLastUsed /= undefined],
-               {'RoleName', RoleName},
-               [{'Tags', make_tags(Tags)} || Tags /= undefined,
-                                             Tags /= []]],
-    {'Role', Content}.
+    C = [{'Arn', make_arn(Arn)},
+         [{'AssumeRolePolicyDocument', AssumeRolePolicyDocument} || AssumeRolePolicyDocument /= undefined],
+         {'CreateDate', CreateDate},
+         [{'Description', Description} || Description /= undefined],
+         [{'MaxSessionDuration', MaxSessionDuration} || MaxSessionDuration /= undefined],
+         {'Path', Path},
+         [{'PermissionsBoundary', make_permission_boundary(PermissionsBoundary)} || PermissionsBoundary /= undefined],
+         {'RoleId', RoleId},
+         [{'RoleLastUsed', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
+                            {'xsi:type', "RoleLastUsed"}],
+           make_role_last_used(RoleLastUsed)} || RoleLastUsed /= undefined],
+         {'RoleName', RoleName},
+         [{'Tags', make_tags(Tags)} || Tags /= undefined,
+                                       Tags /= []]
+        ],
+    {'Role', lists:flatten(C)}.
 
 make_arn(?S3_ARN{provider = Provider,
                  service = Service,
@@ -379,6 +381,13 @@ make_role_last_used(?S3_ROLE_LAST_USED{last_used_date = LastUsedDate,
                                        region = Region}) ->
     [{'LastUsedDate', LastUsedDate} || LastUsedDate =/= undefined ]
         ++ [{'Region', Region} || Region =/= undefined].
+
+make_permission_boundary(?S3_PERMISSION_BOUNDARY{permissions_boundary_arn = PermissionsBoundaryArn,
+                                                 permissions_boundary_type = PermissionsBoundaryType}) ->
+    C =[[{'PermissionsBoundaryArn', make_arn(PermissionsBoundaryArn)} || PermissionsBoundaryArn /= undefined],
+        [{'PermissionsBoundaryType', PermissionsBoundaryType} || PermissionsBoundaryType /= undefined]
+       ],
+    {'PermissionsBoundary', lists:flatten(C)}.
 
 make_tags(TT) ->
     [make_tag(T) || T <- TT].

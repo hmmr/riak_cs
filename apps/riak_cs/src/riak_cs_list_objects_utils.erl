@@ -24,7 +24,7 @@
 -module(riak_cs_list_objects_utils).
 
 -include("riak_cs.hrl").
--include("list_objects.hrl").
+-include("riak_cs_api.hrl").
 
 %%%===================================================================
 %%% Types

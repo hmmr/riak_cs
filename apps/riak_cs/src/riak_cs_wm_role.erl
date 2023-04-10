@@ -24,9 +24,9 @@
 
 -export([init/1,
          service_available/2,
-         forbidden/2,
          content_types_provided/2,
          content_types_accepted/2,
+         authorize/2,
          accept_json/2,
          accept_xml/2,
          allowed_methods/2,
@@ -38,9 +38,9 @@
 
 -ignore_xref([init/1,
               service_available/2,
-              forbidden/2,
               content_types_provided/2,
               content_types_accepted/2,
+              authorize/2,
               accept_json/2,
               accept_xml/2,
               allowed_methods/2,
@@ -53,6 +53,7 @@
 -include("riak_cs_web.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% -------------------------------------------------------------------
 %% Webmachine callbacks
@@ -81,13 +82,13 @@ allowed_methods(RD, Ctx) ->
     {['GET', 'HEAD', 'POST'], RD, Ctx}.
 
 -spec content_types_accepted(#wm_reqdata{}, #rcs_context{}) ->
-    {[{{?XML_TYPE, accept_xml}], #wm_reqdata{}, #rcs_context{}}.
+    {[{string(), accept_xml}], #wm_reqdata{}, #rcs_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
     {[{?XML_TYPE, accept_xml}, {?JSON_TYPE, accept_json}], RD, Ctx}.
 
 -spec content_types_provided(#wm_reqdata{}, #rcs_context{}) ->
-    {[{?XML_TYPE, produce_xml}], #wm_reqdata{}, #rcs_context{}}.
+    {[{string(), produce_xml}], #wm_reqdata{}, #rcs_context{}}.
 content_types_provided(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_provided">>),
     {[{?XML_TYPE, produce_xml}, {?JSON_TYPE, produce_json}], RD, Ctx}.
@@ -95,8 +96,7 @@ content_types_provided(RD, Ctx) ->
 
 -spec authorize(#wm_reqdata{}, #rcs_context{}) ->
     {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_context{}}.
-authorize(RD, Ctx0=#rcs_context{local_context=LocalCtx0,
-                                riak_client=RcPid}) ->
+authorize(RD, Ctx) ->
     Method = wrq:method(RD),
     riak_cs_wm_utils:role_access_authorize_helper(Method, RD, Ctx).
 
@@ -128,18 +128,24 @@ accept_xml(RD, Ctx) ->
               ?XML_TYPE, RD, Ctx)
     end.
 
-produce_json(RD, #rcs_context{}=Ctx) ->
+-spec produce_json(#wm_reqdata{}, #rcs_context{}) ->
+    {string(), #wm_reqdata{}, #rcs_context{}}.
+produce_json(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_json">>),
+    RoleId = list_to_binary(wrq:path_info(role, RD)),
     Body = riak_cs_json:to_json(
              riak_cs_role:get_role(RoleId)),
     Etag = etag(Body),
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.
 
+-spec produce_xml(#wm_reqdata{}, #rcs_context{}) ->
+    {string(), #wm_reqdata{}, #rcs_context{}}.
 produce_xml(RD, #rcs_context{}=Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_xml">>),
+    RoleId = list_to_binary(wrq:path_info(role, RD)),
     Body = riak_cs_xml:to_xml(
-             riak_cs_role:get_role(Roleid)),
+             riak_cs_role:get_role(RoleId)),
     Etag = etag(Body),
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.
@@ -205,7 +211,7 @@ extract_to_acc(E, N, Q) ->
     [A | _] = E#xmlElement.content,
     case is_record(A, xmlText) of
         true ->
-            [{N, Content#xmlText.value} | Q];
+            [{N, A#xmlText.value} | Q];
         false ->
             Q
     end.
