@@ -57,6 +57,7 @@
 -define(IAM_BUCKET, <<"moss.iam">>).
 -define(GC_BUCKET, <<"riak-cs-gc">>).
 -define(FREE_BUCKET_MARKER, <<"0">>).
+-define(FREE_ROLE_MARKER, <<"0">>).
 
 -define(MD_BAG, <<"X-Rcs-Bag">>).
 -define(MD_ACL, <<"X-Moss-Acl">>).

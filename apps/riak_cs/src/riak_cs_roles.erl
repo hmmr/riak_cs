@@ -22,7 +22,7 @@
 
 -export([create_role/1,
          delete_role/1,
-         get_role/1,
+         get_role/2,
          list_roles/0
         ]).
 
@@ -30,30 +30,57 @@
 -include("s3_api.hrl").
 -include_lib("kernel/include/logger.hrl").
 
+
 -spec create_role(proplist:proplist()) -> {ok, RoleId::string()} | {error, already_exists | term()}.
 create_role(Specs) ->
     Role = exprec:fromlist_role_v1(Specs),
     Result = velvet:create_role("application/json",
-                                binary_to_list(riak_cs_json:to_json(Role))),
-    _ = riak_cs_stats:update_with_start(StatsKey, StartTime, Result),
-    handle_create_role(Result, RoleId).
+                                binary_to_list(riak_cs_json:to_json(Role)), []),
+    handle_response(Result).
 
-handle_create_role(ok, A) ->
-    {ok, A};
-handle_create_role({error, {error_status, _, _, ErrorDoc}}, _User) ->
-    riak_cs_s3_response:error_response(ErrorDoc);
-handle_create_role({error, _} = Error, _) ->
-    Error.
-
-
+-spec delete_role(string()) -> ok | {error, term()}.
 delete_role(RoleId) ->
-    logger:debug("STUB delete_role(~p)", [RoleId]).
+    Result = velvet:delete_role(RoleId, []),
+    handle_response(Result).
 
-get_role(RoleId) ->
-    logger:debug("STUB get_role(~p)", [RoleId]).
+-spec get_role(string(), pid()) -> {ok, ?S3_ROLE{}} | {error, term()}.
+get_role(RoleId, RcPid) ->
+    BinKey = list_to_binary(RoleId),
+    case riak_cs_riak_client:get_role(RcPid, BinKey) of
+        {ok, Obj} ->
+            {ok, from_riakc_obj(Obj)};
+        Error ->
+            Error
+    end.
+
+from_riakc_obj(Obj) ->
+    case riakc_obj:value_count(Obj) of
+        1 ->
+            binary_to_term(riakc_obj:get_value(Obj));
+        0 ->
+            error(no_value);
+        N ->
+            Values = [binary_to_term(Value) ||
+                         Value <- riakc_obj:get_values(Obj),
+                         Value /= <<>>  % tombstone
+                     ],
+            Role = hd(Values),
+            logger:warning("Role object '~s' has ~b siblings", [Role?S3_ROLE.role_id, N]),
+            Role
+    end.
 
 list_roles() ->
     logger:debug("STUB list_roles", []).
+
+
+handle_response({ok, RoleId}) ->
+    {ok, RoleId};
+handle_response(ok) ->
+    ok;
+handle_response({error, {error_status, _, _, ErrorDoc}}) ->
+    riak_cs_s3_response:error_response(ErrorDoc);
+handle_response({error, _} = Error) ->
+    Error.
 
 
 -ifdef(TEST).

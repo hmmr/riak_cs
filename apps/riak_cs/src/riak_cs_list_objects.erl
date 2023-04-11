@@ -24,7 +24,7 @@
 -module(riak_cs_list_objects).
 
 -include("riak_cs.hrl").
--include("list_objects.hrl").
+-include("riak_cs_api.hrl").
 
 %% API
 -export([new_request/2,

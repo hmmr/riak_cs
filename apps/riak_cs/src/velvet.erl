@@ -292,8 +292,9 @@ create_role(ContentType, Doc, Options) ->
             Headers = Headers0
     end,
     case request(post, Path, [201], ContentType, Headers, Doc) of
-        {ok, {{_, 201, _}, _RespHeaders, _RespBody}} ->
-            ok;
+        {ok, {{_, 201, _}, _RespHeaders, RespBody}} ->
+            RoleId = RespBody,
+            {ok, RoleId};
         {error, {ok, {{_, StatusCode, Reason}, _RespHeaders, RespBody}}} ->
             {error, {error_status, StatusCode, Reason, RespBody}};
         {error, Error} ->

@@ -88,8 +88,8 @@ accept_body(RD, Ctx) ->
     ParsedBody = mochijson2:decode(Body),
     FieldList = stanchion_wm_utils:json_to_proplist(ParsedBody),
     case stanchion_server:create_role(FieldList) of
-        ok ->
-            {true, RD, Ctx};
+        {ok, RoleId} ->
+            {true, wrq:set_resp_body(RoleId, RD), Ctx};
         {error, Reason} ->
             stanchion_response:api_error(Reason, RD, Ctx)
     end.

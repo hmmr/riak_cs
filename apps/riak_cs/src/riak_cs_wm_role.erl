@@ -130,22 +130,22 @@ accept_xml(RD, Ctx) ->
 
 -spec produce_json(#wm_reqdata{}, #rcs_context{}) ->
     {string(), #wm_reqdata{}, #rcs_context{}}.
-produce_json(RD, Ctx) ->
+produce_json(RD, Ctx = #rcs_context{riak_client = RcPid}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_json">>),
     RoleId = list_to_binary(wrq:path_info(role, RD)),
     Body = riak_cs_json:to_json(
-             riak_cs_role:get_role(RoleId)),
+             riak_cs_role:get_role(RoleId, RcPid)),
     Etag = etag(Body),
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.
 
 -spec produce_xml(#wm_reqdata{}, #rcs_context{}) ->
     {string(), #wm_reqdata{}, #rcs_context{}}.
-produce_xml(RD, #rcs_context{}=Ctx) ->
+produce_xml(RD, #rcs_context{riak_client = RcPid}=Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_xml">>),
     RoleId = list_to_binary(wrq:path_info(role, RD)),
     Body = riak_cs_xml:to_xml(
-             riak_cs_role:get_role(RoleId)),
+             riak_cs_role:get_role(RoleId, RcPid)),
     Etag = etag(Body),
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.

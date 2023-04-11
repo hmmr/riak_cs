@@ -143,20 +143,18 @@ delete_bucket_policy(Bucket, RequesterId) ->
                              {delete_policy, Bucket, RequesterId},
                              infinity)).
 
--spec create_role([{term(), term()}]) ->
-                         ok |
-                         {error, term()} |
-                         {error, stanchion_utils:riak_connect_failed()}.
+-spec create_role([{term(), term()}]) -> ok | {error, term()}.
 create_role(RoleData) ->
     ?MEASURE([role, create],
              gen_server:call(?MODULE,
                              {create_role, RoleData},
                              infinity)).
 
-delete_role(RoleData) ->
+-spec delete_role(string()) -> ok | {error, term()}.
+delete_role(RoleId) ->
     ?MEASURE([role, delete],
              gen_server:call(?MODULE,
-                             {delete_role, RoleData},
+                             {delete_role, RoleId},
                              infinity)).
 
 stop(Pid) ->

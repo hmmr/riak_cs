@@ -1126,9 +1126,9 @@ valid_entity_length(MaxLen, RD, #rcs_context{response_module=ResponseMod,
     end.
 
 
--spec object_access_authorize_helper(atom(), #wm_reqdata{}, #rcs_context{}) ->
+-spec role_access_authorize_helper(atom(), #wm_reqdata{}, #rcs_context{}) ->
           authorized_response().
-role_access_authorize_helper(Method, RD, Ctx) ->
+role_access_authorize_helper(_Method, RD, Ctx) ->
     logger:debug("STUB role_access_authorize_helper, returning true"),
     {true, RD, Ctx}.
 
