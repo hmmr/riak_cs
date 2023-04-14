@@ -67,26 +67,26 @@ admin_resources(Props) ->
 base_resources() ->
     [
      %% Bucket resources
-     {["buckets"], riak_cs_wm_common, props(riak_cs_wm_buckets)},
-     {["buckets", bucket], riak_cs_wm_common, props(riak_cs_wm_bucket)},
-     {["buckets", bucket, "objects"], riak_cs_wm_common, props(riak_cs_wm_objects)},
-     {["buckets", bucket, "delete"], riak_cs_wm_common, props(riak_cs_wm_bucket_delete)},
-     {["buckets", bucket, "acl"], riak_cs_wm_common, props(riak_cs_wm_bucket_acl)},
-     {["buckets", bucket, "location"], riak_cs_wm_common, props(riak_cs_wm_bucket_location)},
-     {["buckets", bucket, "versioning"], riak_cs_wm_common, props(riak_cs_wm_bucket_versioning)},
-     {["buckets", bucket, "versions"], riak_cs_wm_common, props(riak_cs_wm_object_versions)},
+     {["buckets"], riak_cs_wm_s3_common, props(riak_cs_wm_buckets)},
+     {["buckets", bucket], riak_cs_wm_s3_common, props(riak_cs_wm_bucket)},
+     {["buckets", bucket, "objects"], riak_cs_wm_s3_common, props(riak_cs_wm_objects)},
+     {["buckets", bucket, "delete"], riak_cs_wm_s3_common, props(riak_cs_wm_bucket_delete)},
+     {["buckets", bucket, "acl"], riak_cs_wm_s3_common, props(riak_cs_wm_bucket_acl)},
+     {["buckets", bucket, "location"], riak_cs_wm_s3_common, props(riak_cs_wm_bucket_location)},
+     {["buckets", bucket, "versioning"], riak_cs_wm_s3_common, props(riak_cs_wm_bucket_versioning)},
+     {["buckets", bucket, "versions"], riak_cs_wm_s3_common, props(riak_cs_wm_object_versions)},
      %% No dynamic contents, almost stub
-     {["buckets", bucket, "requestPayment"], riak_cs_wm_common, props(riak_cs_wm_bucket_request_payment)},
+     {["buckets", bucket, "requestPayment"], riak_cs_wm_s3_common, props(riak_cs_wm_bucket_request_payment)},
      %% NYI
-     {["buckets", bucket, "lifecycle"], riak_cs_wm_common, props(riak_cs_wm_not_implemented)},
+     {["buckets", bucket, "lifecycle"], riak_cs_wm_s3_common, props(riak_cs_wm_not_implemented)},
      %% Object resources
-     {["buckets", bucket, "objects", object, "versions", versionId], riak_cs_wm_common, props(riak_cs_wm_object)},
-     {["buckets", bucket, "objects", object, "versions", versionId, "uploads", uploadId], riak_cs_wm_common, props(riak_cs_wm_object_upload_part)},
-     {["buckets", bucket, "objects", object, "versions", versionId, "uploads"], riak_cs_wm_common, props(riak_cs_wm_object_upload)},
-     {["buckets", bucket, "objects", object, "versions", versionId, "acl"], riak_cs_wm_common, props(riak_cs_wm_object_acl)},
+     {["buckets", bucket, "objects", object, "versions", versionId], riak_cs_wm_s3_common, props(riak_cs_wm_object)},
+     {["buckets", bucket, "objects", object, "versions", versionId, "uploads", uploadId], riak_cs_wm_s3_common, props(riak_cs_wm_object_upload_part)},
+     {["buckets", bucket, "objects", object, "versions", versionId, "uploads"], riak_cs_wm_s3_common, props(riak_cs_wm_object_upload)},
+     {["buckets", bucket, "objects", object, "versions", versionId, "acl"], riak_cs_wm_s3_common, props(riak_cs_wm_object_acl)},
      %% Roles
-     {["roles"], riak_cs_wm_common, props(riak_cs_wm_roles)},
-     {["roles", role], riak_cs_wm_common, props(riak_cs_wm_role)}
+     {["roles"], riak_cs_wm_iam_common, props(riak_cs_wm_roles)},
+     {["roles", role], riak_cs_wm_iam_common, props(riak_cs_wm_role)}
     ].
 
 -spec one_three_resources(undefined | pos_integer()) -> [dispatch_rule()].

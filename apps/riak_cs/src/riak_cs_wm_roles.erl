@@ -38,7 +38,7 @@
 allowed_methods() ->
     ['GET'].
 
--spec api_request(#wm_reqdata{}, #rcs_context{}) -> {ok, ?LRRESP{}} | {error, term()}.
+-spec api_request(#wm_reqdata{}, #rcs_s3_context{}) -> {ok, ?LRRESP{}} | {error, term()}.
 api_request(_RD, _Ctx) ->
     Res = riak_cs_api:list_roles(),
     Res.

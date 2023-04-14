@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2015 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -56,7 +56,7 @@
 %% Public API
 %% ===================================================================
 
--spec identify(RD::term(), #rcs_context{}) ->
+-spec identify(RD::term(), #rcs_s3_context{}) ->
           {string() | undefined,
            string() | {v4, v4_attrs()} | undefined} |
           {failed, Reason::atom()}.
@@ -68,7 +68,7 @@ identify(RD, _Ctx) ->
             parse_auth_header(AuthHeader)
     end.
 
--spec authenticate(rcs_user(), string() | {v4, v4_attrs()}, RD::term(), #rcs_context{}) ->
+-spec authenticate(rcs_user(), string() | {v4, v4_attrs()}, RD::term(), #rcs_s3_context{}) ->
           ok | {error, atom()}.
 authenticate(User, Signature, RD, Ctx) ->
     case wrq:get_req_header("authorization", RD) of
@@ -84,7 +84,7 @@ authenticate(User, Signature, RD, Ctx) ->
             end
     end.
 
--spec authenticate_1(rcs_user(), string() | {v4, v4_attrs()}, RD::term(), #rcs_context{}) ->
+-spec authenticate_1(rcs_user(), string() | {v4, v4_attrs()}, RD::term(), #rcs_s3_context{}) ->
           ok | {error, atom()}.
 authenticate_1(User, {v4, Attributes}, RD, _Ctx) ->
     authenticate_v4(User, Attributes, RD);

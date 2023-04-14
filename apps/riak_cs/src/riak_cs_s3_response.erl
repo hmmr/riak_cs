@@ -232,8 +232,8 @@ status_code(ErrorName) ->
     logger:warning("Unknown error: ~p", [ErrorName]),
     503.
 
--spec respond(term(), #wm_reqdata{}, #rcs_context{}) ->
-                     {binary(), #wm_reqdata{}, #rcs_context{}}.
+-spec respond(term(), #wm_reqdata{}, #rcs_s3_context{}) ->
+                     {binary(), #wm_reqdata{}, #rcs_s3_context{}}.
 respond(?LBRESP{} = Response, RD, Ctx) ->
     {riak_cs_xml:to_xml(Response), RD, Ctx};
 respond({ok, ?LORESP{} = Response}, RD, Ctx) ->

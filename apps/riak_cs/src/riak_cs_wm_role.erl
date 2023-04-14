@@ -59,7 +59,7 @@
 %% Webmachine callbacks
 %% -------------------------------------------------------------------
 
--spec init(proplists:proplist()) -> {ok, #rcs_context{}}.
+-spec init(proplists:proplist()) -> {ok, #rcs_iam_context{}}.
 init(Config) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"init">>),
     %% Check if authentication is disabled and
@@ -67,35 +67,34 @@ init(Config) ->
     AuthBypass = not proplists:get_value(admin_auth_enabled, Config),
     Api = riak_cs_config:api(),
     RespModule = riak_cs_config:response_module(Api),
-    {ok, #rcs_context{auth_bypass=AuthBypass,
-                      api=Api,
-                      response_module=RespModule}}.
+    {ok, #rcs_iam_context{auth_bypass = AuthBypass,
+                          response_module = RespModule}}.
 
--spec service_available(#wm_reqdata{}, #rcs_context{}) -> {true, #wm_reqdata{}, #rcs_context{}}.
+-spec service_available(#wm_reqdata{}, #rcs_iam_context{}) -> {true, #wm_reqdata{}, #rcs_iam_context{}}.
 service_available(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"service_available">>),
     riak_cs_wm_utils:service_available(RD, Ctx).
 
--spec allowed_methods(#wm_reqdata{}, #rcs_context{}) -> {[atom()], #wm_reqdata{}, #rcs_context{}}.
+-spec allowed_methods(#wm_reqdata{}, #rcs_iam_context{}) -> {[atom()], #wm_reqdata{}, #rcs_iam_context{}}.
 allowed_methods(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"allowed_methods">>),
     {['GET', 'HEAD', 'POST'], RD, Ctx}.
 
--spec content_types_accepted(#wm_reqdata{}, #rcs_context{}) ->
-    {[{string(), accept_xml}], #wm_reqdata{}, #rcs_context{}}.
+-spec content_types_accepted(#wm_reqdata{}, #rcs_iam_context{}) ->
+    {[{string(), accept_xml}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
     {[{?XML_TYPE, accept_xml}, {?JSON_TYPE, accept_json}], RD, Ctx}.
 
--spec content_types_provided(#wm_reqdata{}, #rcs_context{}) ->
-    {[{string(), produce_xml}], #wm_reqdata{}, #rcs_context{}}.
+-spec content_types_provided(#wm_reqdata{}, #rcs_iam_context{}) ->
+    {[{string(), produce_xml}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_provided(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_provided">>),
     {[{?XML_TYPE, produce_xml}, {?JSON_TYPE, produce_json}], RD, Ctx}.
 
 
--spec authorize(#wm_reqdata{}, #rcs_context{}) ->
-    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_context{}}.
+-spec authorize(#wm_reqdata{}, #rcs_iam_context{}) ->
+    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_iam_context{}}.
 authorize(RD, Ctx) ->
     Method = wrq:method(RD),
     riak_cs_wm_utils:role_access_authorize_helper(Method, RD, Ctx).
@@ -103,7 +102,7 @@ authorize(RD, Ctx) ->
 
 post_is_create(RD, Ctx) -> {true, RD, Ctx}.
 
--spec accept_json(#wm_reqdata{}, #rcs_context{}) ->
+-spec accept_json(#wm_reqdata{}, #rcs_iam_context{}) ->
     {boolean() | {halt, term()}, term(), term()}.
 accept_json(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
@@ -113,8 +112,8 @@ accept_json(RD, Ctx) ->
       riak_cs_roles:create_role(Specs),
       ?JSON_TYPE, RD, Ctx).
 
--spec accept_xml(#wm_reqdata{}, #rcs_context{}) ->
-    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_context{}}.
+-spec accept_xml(#wm_reqdata{}, #rcs_iam_context{}) ->
+    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_iam_context{}}.
 accept_xml(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_xml">>),
     case riak_cs_xml:scan(binary_to_list(wrq:req_body(RD))) of
@@ -128,9 +127,9 @@ accept_xml(RD, Ctx) ->
               ?XML_TYPE, RD, Ctx)
     end.
 
--spec produce_json(#wm_reqdata{}, #rcs_context{}) ->
-    {string(), #wm_reqdata{}, #rcs_context{}}.
-produce_json(RD, Ctx = #rcs_context{riak_client = RcPid}) ->
+-spec produce_json(#wm_reqdata{}, #rcs_iam_context{}) ->
+    {string(), #wm_reqdata{}, #rcs_iam_context{}}.
+produce_json(RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_json">>),
     RoleId = list_to_binary(wrq:path_info(role, RD)),
     Body = riak_cs_json:to_json(
@@ -139,9 +138,9 @@ produce_json(RD, Ctx = #rcs_context{riak_client = RcPid}) ->
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.
 
--spec produce_xml(#wm_reqdata{}, #rcs_context{}) ->
-    {string(), #wm_reqdata{}, #rcs_context{}}.
-produce_xml(RD, #rcs_context{riak_client = RcPid}=Ctx) ->
+-spec produce_xml(#wm_reqdata{}, #rcs_iam_context{}) ->
+    {string(), #wm_reqdata{}, #rcs_iam_context{}}.
+produce_xml(RD, #rcs_iam_context{riak_client = RcPid}=Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_xml">>),
     RoleId = list_to_binary(wrq:path_info(role, RD)),
     Body = riak_cs_xml:to_xml(
@@ -150,14 +149,14 @@ produce_xml(RD, #rcs_context{riak_client = RcPid}=Ctx) ->
     RD2 = wrq:set_resp_header("ETag", Etag, RD),
     {Body, RD2, Ctx}.
 
-finish_request(RD, Ctx=#rcs_context{riak_client = undefined}) ->
+finish_request(RD, Ctx=#rcs_iam_context{riak_client = undefined}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"finish_request">>, [0], []),
     {true, RD, Ctx};
-finish_request(RD, Ctx=#rcs_context{riak_client=RcPid}) ->
+finish_request(RD, Ctx=#rcs_iam_context{riak_client=RcPid}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"finish_request">>, [1], []),
     riak_cs_riak_client:checkin(RcPid),
     riak_cs_dtrace:dt_wm_return(?MODULE, <<"finish_request">>, [1], []),
-    {true, RD, Ctx#rcs_context{riak_client = undefined}}.
+    {true, RD, Ctx#rcs_iam_context{riak_client = undefined}}.
 
 %% -------------------------------------------------------------------
 %% Internal functions

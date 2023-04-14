@@ -93,13 +93,7 @@ raw_url(RD) ->
                     {mochiweb_headers(), string()}.
 rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
     Host = mochiweb_headers:get_value("host", Headers),
-    HostBucket =
-        case bucket_from_host(Host) of
-            "iam" ->
-                iam;
-            RealBucket ->
-                RealBucket
-        end,
+    HostBucket = bucket_from_host(Host),
     RewrittenPath = rewrite_path(Method,
                                  Path,
                                  QueryString,
@@ -113,8 +107,6 @@ rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
 
 
 %% @doc Internal function to handle rewriting the URL
-rewrite_path(_Method, "/", QS, iam) ->
-    iam_path_from_qs(QS);
 rewrite_path(_Method, "/", _QS, undefined) ->
     "/buckets";
 rewrite_path(Method, Path, QS, undefined) ->
@@ -139,19 +131,6 @@ rewrite_path(_Method, Path, QS, Bucket) ->
                    format_object_qs(get_subresources(QS))
                   ]).
 
-iam_path_from_qs(QS) ->
-    Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),
-    case Action of
-        A when A =:= "GetRole";
-               A =:= "CreateRole";
-               A =:= "DeleteRole";
-               A =:= "ListRoles" ->
-            "/roles";
-        UnsupportedAction ->
-            logger:warning("iam action \"~s\" not implemented", [UnsupportedAction]),
-            "/unsupported"
-    end.
-
 %% @doc, build the path to be stored as the rewritten path in the request. Bucket name
 %% from the host header is added if it exists.
 rcs_rewrite_header(RawPath, undefined) ->
@@ -163,10 +142,8 @@ rcs_rewrite_header(RawPath, Bucket) ->
 %% host name in the Host header value.
 -spec bucket_from_host(undefined | string()) -> undefined | string().
 bucket_from_host(undefined) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"bucket_from_host">>),
     undefined;
 bucket_from_host(HostHeader) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"bucket_from_host">>),
     {ok, RootHost} = application:get_env(riak_cs, cs_root_host),
     bucket_from_host(HostHeader, RootHost).
 
@@ -180,6 +157,7 @@ bucket_from_host(HostHeader, RootHost) ->
 extract_bucket_from_host(Host, RootHost) ->
     %% Take the substring of the everything up to
     %% the '.' preceding the root host
+    logger:debug("0000000000000b ~p from ~p", [Host, RootHost]),
     Bucket =
         case re:run(Host, "(.+\.|)(s3\.(?:(?:[a-z0-9-])+\.)?amazonaws\.com)",
                     [{capture, all_but_first, list}]) of
