@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -254,7 +254,7 @@ make_content_types_accepted(CT, RD, Ctx, Callback)
   when CT =:= undefined;
        CT =:= [] ->
     make_content_types_accepted("application/octet-stream", RD, Ctx, Callback);
-make_content_types_accepted(CT, RD, Ctx = #rcs_context{local_context = LocalCtx0}, Callback) ->
+make_content_types_accepted(CT, RD, Ctx = #rcs_s3_context{local_context = LocalCtx0}, Callback) ->
     %% This was shamelessly ripped out of
     %% https://github.com/basho/riak_kv/blob/0d91ca641a309f2962a216daa0cee869c82ffe26/src/riak_kv_wm_object.erl#L492
     {Media, _Params} = mochiweb_util:parse_header(CT),
@@ -262,7 +262,7 @@ make_content_types_accepted(CT, RD, Ctx = #rcs_context{local_context = LocalCtx0
         [_Type, _Subtype] ->
             %% accept whatever the user says
             LocalCtx = LocalCtx0#key_context{putctype = Media},
-            {[{Media, Callback}], RD, Ctx#rcs_context{local_context = LocalCtx}};
+            {[{Media, Callback}], RD, Ctx#rcs_s3_context{local_context = LocalCtx}};
         _ ->
             {[],
              wrq:set_resp_header(
