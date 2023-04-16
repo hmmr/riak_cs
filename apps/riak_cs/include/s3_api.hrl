@@ -156,7 +156,7 @@
 
 -record(policy_v1, { arn :: arn() | undefined
                    , attachment_count :: non_neg_integer() | undefined
-                   , create_date = os:timestamp(millisecond) :: os:timestamp() | undefined
+                   , create_date = rts:iso8601(os:timestamp(millisecond)) :: string() | undefined
                    , default_version_id :: string() | undefined
                    , description :: string() | undefined
                    , is_attachable :: boolean() | undefined
@@ -165,7 +165,7 @@
                    , policy_id :: string() | undefined
                    , policy_name :: string() | undefined
                    , tags :: [tag()] | undefined
-                   , update_date :: os:timestamp() | undefined
+                   , update_date :: binary() | undefined
          }).
 -type policy() :: #policy_v1{}.
 -define(S3_POLICY, #policy_v1).
@@ -196,7 +196,7 @@
 
 -record(role_v1, { arn :: arn()
                  , assume_role_policy_document :: policy()
-                 , create_date = os:timestamp(millisecond) :: erlang:timestamp()
+                 , create_date = rts:iso8601(os:timestamp(millisecond)) :: erlang:timestamp()
                  , description :: string()
                  , max_session_duration :: non_neg_integer()
                  , path :: string()

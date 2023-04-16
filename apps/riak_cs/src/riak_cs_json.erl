@@ -80,13 +80,16 @@ to_json(?KEYSTONE_S3_AUTH_REQ{}=Req) ->
                       {<<"signature">>, Req?KEYSTONE_S3_AUTH_REQ.signature},
                       {<<"token">>, Req?KEYSTONE_S3_AUTH_REQ.token}]},
     iolist_to_binary(mochijson2:encode({struct, [{<<"credentials">>, Inner}]}));
-to_json(?RCS_USER{} = Req) ->
-    iolist_to_binary(mochijson2:encode(user_object(Req)));
-to_json({users, Users}) ->
-    UserList = [user_object(User) || User <- Users],
-    iolist_to_binary(mochijson2:encode(UserList));
-to_json(?S3_ROLE{} = Req) ->
-    iolist_to_binary(mochijson2:encode(role_object(Req)));
+to_json(?RCS_USER{} = A) ->
+    jason:encode(A, [{records, [{rcs_user_v2, record_info(fields, rcs_user_v2)}]}]);
+to_json({users, AA}) ->
+    jason:encode(AA, [{records, [{rcs_user_v2, record_info(fields, rcs_user_v2)}]}]);
+to_json(?S3_ROLE{} = A) ->
+    jason:encode(A, [{records, [{role_v1, record_info(fields, role_v1)},
+                                {policy_v1, record_info(fields, policy_v1)},
+                                {arn_v1, record_info(fields, arn_v1)},
+                                {permissions_boundary, record_info(fields, permissions_boundary)}
+                               ]}]);
 to_json(undefined) ->
     [];
 to_json([]) ->
@@ -146,109 +149,6 @@ target_tuple_values(Keys, JsonItems) ->
     list_to_tuple(
       [proplists:get_value(element(Index, Keys), JsonItems)
        || Index <- lists:seq(1, tuple_size(Keys))]).
-
--spec user_object(rcs_user()) -> {struct, proplists:proplist()}.
-user_object(?RCS_USER{email=Email,
-                      display_name=DisplayName,
-                      name=Name,
-                      key_id=KeyID,
-                      key_secret=KeySecret,
-                      canonical_id=CanonicalID,
-                      status=Status}) ->
-    StatusBin = case Status of
-                    enabled ->
-                        <<"enabled">>;
-                    _ ->
-                        <<"disabled">>
-                end,
-    S = [{email, list_to_binary(Email)},
-         {display_name, list_to_binary(DisplayName)},
-         {name, list_to_binary(Name)},
-         {key_id, list_to_binary(KeyID)},
-         {key_secret, list_to_binary(KeySecret)},
-         {id, list_to_binary(CanonicalID)},
-         {status, StatusBin}
-        ],
-    {struct, S}.
-
-arn_object('*') ->
-    '*';
-arn_object(?S3_ARN{provider = Provider,
-                   service  = Service,
-                   region = Region,
-                   id = Id,
-                   path = Path}) ->
-    S = [{provider, Provider},
-         {service, Service},
-         {region, list_to_binary(Region)},
-         {id, Id},
-         {path, list_to_binary(Path)}
-        ],
-    {struct, S}.
-
-tag_object(?S3_TAG{key = Key,
-                   value = Value}) ->
-    S = [{key, Key},
-         {value, Value}],
-    {struct, S}.
-
-permissions_boundary_object(?S3_PERMISSION_BOUNDARY{permissions_boundary_arn = PermissionsBoundaryArn,
-                                                    permissions_boundary_type = PermissionsBoundaryType}) ->
-    S = [{permissions_boundary_arn, arn_object(PermissionsBoundaryArn)},
-         {permissions_boundary_type, PermissionsBoundaryType}
-        ],
-    {struct, S}.
-
-policy_object(?S3_POLICY{arn = Arn,
-                         attachment_count = AttachmentCount,
-                         create_date = CreateDate,
-                         default_version_id = DefaultVersionId,
-                         description = Description,
-                         is_attachable = IsAttachable,
-                         path = Path,
-                         permissions_boundary_usage_count = PermissionsBoundaryUsageCount,
-                         policy_id = PolicyId,
-                         policy_name = PolicyName,
-                         tags = Tags,
-                         update_date = UpdateDate}) ->
-    S = [{arn, arn_object(Arn)},
-         {attachment_count, AttachmentCount},
-         {create_date, rts:iso8601(CreateDate)},
-         {default_version_id, DefaultVersionId},
-         {description, Description},
-         {is_attachable, IsAttachable},
-         {path, Path},
-         {permissions_boundary_usage_count, PermissionsBoundaryUsageCount},
-         {policy_id, PolicyId},
-         {policy_name, PolicyName},
-         {tags, [tag_object(A) || A <- Tags]},
-         {update_date, rts:iso8601(UpdateDate)}],
-    {struct, S}.
-
-role_object(?S3_ROLE{arn = Arn,
-                     assume_role_policy_document = AssumeRolePolicyDocument,
-                     create_date = CreateDate,
-                     description = Description,
-                     max_session_duration = MaxSessionDuration,
-                     path = Path,
-                     permissions_boundary = PermissionsBoundary,
-                     role_id = RoleId,
-                     role_last_used = RoleLastUsed,
-                     role_name = RoleName,
-                     tags = Tags}) ->
-    S = [{arn, arn_object(Arn)},
-         {assume_role_policy_document, policy_object(AssumeRolePolicyDocument)},
-         {create_date, CreateDate},
-         {description, Description},
-         {max_session_duration, MaxSessionDuration},
-         {path, list_to_binary(Path)},
-         {permissions_boundary, permissions_boundary_object(PermissionsBoundary)},
-         {role_id, list_to_binary(RoleId)},
-         {role_last_used, RoleLastUsed},
-         {role_name, list_to_binary(RoleName)},
-         {tags, [tag_object(A) || A <- Tags]}
-        ],
-    {struct, S}.
 
 
 %% ===================================================================

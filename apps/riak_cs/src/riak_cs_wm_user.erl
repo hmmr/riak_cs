@@ -128,23 +128,17 @@ create_path(RD, Ctx) -> {"/riak-cs/user", RD, Ctx}.
     {boolean() | {halt, term()}, term(), term()}.
 accept_json(RD, Ctx=#rcs_s3_context{user=undefined}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
-    Body = riak_cs_json:from_json(wrq:req_body(RD)),
-    {UserName, Email} =
-        riak_cs_json:value_or_default(
-          riak_cs_json:get(Body, [{<<"name">>, <<"email">>}]),
-          {<<>>, <<>>}),
-    user_response(riak_cs_user:create_user(binary_to_list(UserName),
-                                           binary_to_list(Email)),
-                      ?JSON_TYPE,
-                      RD,
-                      Ctx);
+    FF = jsx:decode(wrq:req_body(RD), [{labels, atom}]),
+    user_response(
+      riak_cs_user:create_user(maps:get(name, FF, <<>>),
+                               maps:get(email, FF, <<>>)),
+      ?JSON_TYPE, RD, Ctx);
 accept_json(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
     Body = wrq:req_body(RD),
-    case catch mochijson2:decode(Body) of
-        {struct, UserItems} ->
-            UpdateItems = lists:foldl(fun user_json_filter/2, [], UserItems),
-            user_response(update_user(UpdateItems, RD, Ctx),
+    case catch jsx:decode(Body, [{labels, atom}]) of
+        UserItems when is_list(UserItems) ->
+            user_response(update_user(UserItems, RD, Ctx),
                           ?JSON_TYPE,
                           RD,
                           Ctx);
@@ -264,11 +258,6 @@ get_user({false, RD, Ctx}, UserPathKey) ->
 get_user(AdminCheckResult, _) ->
     AdminCheckResult.
 
--spec handle_get_user_result({ok, {rcs_user(), term()}} | {error, term()},
-                             term(),
-                             term()) ->
-                                    {boolean() | {halt, term()}, term(), term()}.
-
 handle_get_user_result({ok, {User, UserObj}}, RD, Ctx) ->
     {false, RD, Ctx#rcs_s3_context{user=User, user_object=UserObj}};
 handle_get_user_result({error, Reason}, RD, Ctx) ->
@@ -276,34 +265,30 @@ handle_get_user_result({error, Reason}, RD, Ctx) ->
                    " Reason: ~p", [user_key(RD), Reason]),
     riak_cs_s3_response:api_error(invalid_access_key_id, RD, Ctx).
 
--spec update_user([{atom(), term()}], #wm_reqdata{}, #rcs_s3_context{}) ->
-    {ok, rcs_user()} | {halt, term()} | {error, term()}.
-update_user(UpdateItems, RD, Ctx=#rcs_s3_context{user=User}) ->
+update_user(UpdateItems, RD, Ctx = #rcs_s3_context{user = User}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"update_user">>),
     UpdateUserResult = update_user_record(User, UpdateItems, false),
     handle_update_result(UpdateUserResult, RD, Ctx).
 
--spec update_user_record('undefined' | rcs_user(), [{atom(), term()}], boolean())
-                        -> {boolean(), rcs_user()}.
 update_user_record(_User, [], RecordUpdated) ->
     {RecordUpdated, _User};
-update_user_record(User=?RCS_USER{status=Status},
-                   [{status, Status} | RestUpdates],
-                   _RecordUpdated) ->
-    update_user_record(User, RestUpdates, _RecordUpdated);
 update_user_record(User, [{status, Status} | RestUpdates], _RecordUpdated) ->
-    update_user_record(User?RCS_USER{status=Status}, RestUpdates, true);
+    update_user_record(User?RCS_USER{status = str_to_status(Status)}, RestUpdates, true);
 update_user_record(User, [{name, Name} | RestUpdates], _RecordUpdated) ->
-    update_user_record(User?RCS_USER{name=Name}, RestUpdates, true);
+    update_user_record(User?RCS_USER{name = Name}, RestUpdates, true);
 update_user_record(User, [{email, Email} | RestUpdates], _RecordUpdated) ->
     DisplayName = riak_cs_user:display_name(Email),
-    update_user_record(User?RCS_USER{email=Email, display_name=DisplayName},
+    update_user_record(User?RCS_USER{email = Email, display_name=DisplayName},
                        RestUpdates,
                        true);
 update_user_record(User=?RCS_USER{}, [{new_key_secret, true} | RestUpdates], _) ->
     update_user_record(riak_cs_user:update_key_secret(User), RestUpdates, true);
 update_user_record(_User, [_ | RestUpdates], _RecordUpdated) ->
     update_user_record(_User, RestUpdates, _RecordUpdated).
+
+str_to_status(<<"enabled">>) -> enabled;
+str_to_status(<<"disabled">>) -> disabled.
+
 
 -spec handle_update_result({boolean(), rcs_user()}, term(), term()) ->
     {ok, rcs_user()} | {halt, term()} | {error, term()}.
@@ -318,28 +303,6 @@ handle_update_result({true, User}, _RD, Ctx) ->
 set_resp_data(ContentType, RD, #rcs_s3_context{user=User}) ->
     UserDoc = format_user_record(User, ContentType),
     wrq:set_resp_body(UserDoc, RD).
-
--spec user_json_filter({binary(), binary()}, [{atom(), term()}]) -> [{atom(), term()}].
-user_json_filter({ItemKey, ItemValue}, Acc) ->
-    case ItemKey of
-        <<"email">> ->
-            [{email, binary_to_list(ItemValue)} | Acc];
-        <<"name">> ->
-            [{name, binary_to_list(ItemValue)} | Acc];
-        <<"status">> ->
-            case ItemValue of
-                <<"enabled">> ->
-                    [{status, enabled} | Acc];
-                <<"disabled">> ->
-                    [{status, disabled} | Acc];
-                _ ->
-                    Acc
-            end;
-        <<"new_key_secret">> ->
-            [{new_key_secret, ItemValue} | Acc];
-        _ ->
-            Acc
-    end.
 
 user_key(RD) ->
     case wrq:path_tokens(RD) of

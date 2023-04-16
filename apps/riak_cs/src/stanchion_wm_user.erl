@@ -91,9 +91,9 @@ content_types_accepted(RD, Ctx) ->
 accept_body(RD, Ctx) ->
     Body = wrq:req_body(RD),
     KeyId = wrq:path_info(key_id, RD),
-    ParsedBody = mochijson2:decode(Body),
-    FieldList = stanchion_wm_utils:json_to_proplist(ParsedBody),
-    case stanchion_server:update_user(KeyId, FieldList) of
+    logger:debug("Body: ~p", [Body]),
+    FF = jsx:decode(Body, [{labels, atom}]),
+    case stanchion_server:update_user(KeyId, FF) of
         ok ->
             {true, RD, Ctx};
         {error, Reason} ->

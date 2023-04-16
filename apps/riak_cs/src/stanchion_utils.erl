@@ -130,16 +130,17 @@ bucket_record(Name, Operation) ->
 
 
 %% @doc Attempt to create a new user
--spec create_user([{term(), term()}]) -> ok | {error, riak_connect_failed() | term()}.
+-spec create_user(proplists:proplist()) -> ok | {error, riak_connect_failed() | term()}.
 create_user(Fields) ->
-    Email = proplists:get_value(<<"email">>, Fields, <<>>),
-    KeyId = proplists:get_value(<<"key_id">>, Fields, <<>>),
+    logger:debug("Fields: ~p", [Fields]),
+    Email = proplists:get_value(email, Fields, <<>>),
+    KeyId = proplists:get_value(key_id, Fields, <<>>),
     case riak_connection() of
         {ok, RiakPid} ->
             try
                 case email_available(Email, RiakPid) of
                     true ->
-                        User = exprec:fromlist_moss_user_v1(Fields),
+                        User = exprec:fromlist_rcs_user_v2(Fields),
                         save_user(User, RiakPid);
                     {false, _} ->
                         logger:info("Refusing to create an existing user with email ~s", [Email]),
