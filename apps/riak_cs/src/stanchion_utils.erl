@@ -92,13 +92,11 @@ get_pbc() ->
 
 %% @doc Create a bucket in the global namespace or return
 %% an error if it already exists.
--spec create_bucket([{term(), term()}]) -> ok | {error, term()}.
-create_bucket(BucketFields) ->
-    Bucket = proplists:get_value(<<"bucket">>, BucketFields, <<>>),
-    BagId = proplists:get_value(<<"bag">>, BucketFields, undefined),
-    OwnerId = proplists:get_value(<<"requester">>, BucketFields, <<>>),
-    AclJson = proplists:get_value(<<"acl">>, BucketFields, []),
-    Acl = stanchion_acl_utils:acl_from_json(AclJson),
+-spec create_bucket(maps:map()) -> ok | {error, term()}.
+create_bucket(#{bucket := Bucket,
+                requester := OwnerId,
+                acl := Acl} = FF) ->
+    BagId = maps:get(bag, FF, undefined),
     case riak_connection() of
         {ok, Pbc} ->
             OpResult1 = do_bucket_op(Bucket, OwnerId, [{acl, Acl}, {bag, BagId}], create, Pbc),
@@ -106,7 +104,8 @@ create_bucket(BucketFields) ->
                 case OpResult1 of
                     ok ->
                         BucketRecord = bucket_record(Bucket, create),
-                        {ok, {User, UserObj}} = get_user(OwnerId, Pbc),
+                        {ok, {UserObj, KeepDeletedBuckets}} = riak_cs_riak_client:get_user_with_pbc(Pbc, OwnerId),
+                        User = riak_cs_user:from_riakc_obj(UserObj, KeepDeletedBuckets),
                         UpdUser = update_user_buckets(add, User, BucketRecord),
                         save_user(false, UpdUser, UserObj, Pbc);
                     {error, _} ->
@@ -123,24 +122,21 @@ bucket_record(Name, Operation) ->
                  create -> created;
                  delete -> deleted
              end,
-    ?RCS_BUCKET{name=binary_to_list(Name),
-                last_action=Action,
-                creation_date=riak_cs_wm_utils:iso_8601_datetime(),
-                modification_time=os:timestamp()}.
+    ?RCS_BUCKET{name = Name,
+                last_action = Action,
+                creation_date = riak_cs_wm_utils:iso_8601_datetime(),
+                modification_time = os:timestamp()}.
 
 
 %% @doc Attempt to create a new user
--spec create_user(proplists:proplist()) -> ok | {error, riak_connect_failed() | term()}.
-create_user(Fields) ->
-    logger:debug("Fields: ~p", [Fields]),
-    Email = proplists:get_value(email, Fields, <<>>),
-    KeyId = proplists:get_value(key_id, Fields, <<>>),
+-spec create_user(maps:map()) -> ok | {error, riak_connect_failed() | term()}.
+create_user(FF = #{email := Email, key_id := KeyId}) ->
     case riak_connection() of
         {ok, RiakPid} ->
             try
                 case email_available(Email, RiakPid) of
                     true ->
-                        User = exprec:fromlist_rcs_user_v2(Fields),
+                        User = exprec:frommap_rcs_user_v2(FF#{status => enabled, buckets => []}),
                         save_user(User, RiakPid);
                     {false, _} ->
                         logger:info("Refusing to create an existing user with email ~s", [Email]),
@@ -167,7 +163,8 @@ delete_bucket(Bucket, OwnerId) ->
                 case OpResult1 of
                     ok ->
                         BucketRecord = bucket_record(Bucket, delete),
-                        {ok, {User, UserObj}} = get_user(OwnerId, Pbc),
+                        {ok, {UserObj, KDB}} = riak_cs_riak_client:get_user_with_pbc(Pbc, OwnerId),
+                        User = riak_cs_user:from_riakc_obj(UserObj, KDB),
                         UpdUser = update_user_buckets(delete, User, BucketRecord),
                         save_user(false, UpdUser, UserObj, Pbc);
                     {error, _} ->
@@ -336,12 +333,13 @@ to_bucket_name(Type, Bucket) ->
 -spec update_user(string(), [{term(), term()}]) ->
                          ok | {error, riak_connect_failed() | term()}.
 update_user(KeyId, UserFields) ->
+    
     case riak_connection() of
         {ok, RiakPid} ->
             try
-                case get_user(KeyId, RiakPid) of
-                    {ok, {User, UserObj}} ->
-
+                case riak_cs_riak_client:get_user_with_pbc(RiakPid, KeyId) of
+                    {ok, {UserObj, KDB}} ->
+                        User = riak_cs_user:from_riakc_obj(UserObj, KDB),
                         {UpdUser, EmailUpdated} =
                             update_user_record(UserFields, User, false),
                         save_user(EmailUpdated,
@@ -747,111 +745,6 @@ save_user(false, User, UserObj, RiakPid) ->
     stanchion_stats:update([riakc, put_cs_user], TAT),
     Res.
 
-%% @doc Retrieve a Riak CS user's information based on their id string.
-get_user(undefined, _RiakPid) ->
-    {error, no_user_key};
-get_user(KeyId, RiakPid) ->
-    %% Check for and resolve siblings to get a
-    %% coherent view of the bucket ownership.
-    BinKey = iolist_to_binary(KeyId),
-    case fetch_object(?USER_BUCKET, BinKey, RiakPid) of
-        {ok, {Obj, KeepDeletedBuckets}} ->
-            user_from_riakc_obj(Obj, KeepDeletedBuckets);
-        Error ->
-            Error
-    end.
-
-user_from_riakc_obj(Obj, KeepDeletedBuckets) ->
-    case riakc_obj:value_count(Obj) of
-        1 ->
-            User = binary_to_term(riakc_obj:get_value(Obj)),
-            {ok, {User, Obj}};
-        0 ->
-            {error, no_value};
-        _ ->
-            Values = [binary_to_term(Value) ||
-                         Value <- riakc_obj:get_values(Obj),
-                         Value /= <<>>  % tombstone
-                     ],
-            User = hd(Values),
-            Buckets = resolve_buckets(Values, [], KeepDeletedBuckets),
-            {ok, {User?RCS_USER{buckets=Buckets}, Obj}}
-    end.
-
-%% @doc Resolve the set of buckets for a user when
-%% siblings are encountered on a read of a user record.
--spec resolve_buckets([rcs_user()], [cs_bucket()], boolean()) ->
-                             [cs_bucket()].
-resolve_buckets([], Buckets, true) ->
-    lists:sort(fun bucket_sorter/2, Buckets);
-resolve_buckets([], Buckets, false) ->
-    lists:sort(fun bucket_sorter/2, [Bucket || Bucket <- Buckets, not cleanup_bucket(Bucket)]);
-resolve_buckets([HeadUserRec | RestUserRecs], Buckets, _KeepDeleted) ->
-    HeadBuckets = HeadUserRec?RCS_USER.buckets,
-    UpdBuckets = lists:foldl(fun bucket_resolver/2, Buckets, HeadBuckets),
-    resolve_buckets(RestUserRecs, UpdBuckets, _KeepDeleted).
-
-%% @doc Check for and resolve any conflict between
-%% a bucket record from a user record sibling and
-%% a list of resolved bucket records.
--spec bucket_resolver(cs_bucket(), [cs_bucket()]) -> [cs_bucket()].
-bucket_resolver(Bucket, ResolvedBuckets) ->
-    case lists:member(Bucket, ResolvedBuckets) of
-        true ->
-            ResolvedBuckets;
-        false ->
-            case [RB || RB <- ResolvedBuckets,
-                        RB?RCS_BUCKET.name =:=
-                            Bucket?RCS_BUCKET.name] of
-                [] ->
-                    [Bucket | ResolvedBuckets];
-                [ExistingBucket] ->
-                    case keep_existing_bucket(ExistingBucket,
-                                              Bucket) of
-                        true ->
-                            ResolvedBuckets;
-                        false ->
-                            [Bucket | lists:delete(ExistingBucket,
-                                                   ResolvedBuckets)]
-                    end
-            end
-    end.
-
-%% @doc Determine if an existing bucket from the resolution list
-%% should be kept or replaced when a conflict occurs.
--spec keep_existing_bucket(cs_bucket(), cs_bucket()) -> boolean().
-keep_existing_bucket(?RCS_BUCKET{last_action=LastAction1,
-                                  modification_time=ModTime1},
-                     ?RCS_BUCKET{last_action=LastAction2,
-                                  modification_time=ModTime2}) ->
-    if
-        LastAction1 == LastAction2
-        andalso
-        ModTime1 =< ModTime2 ->
-            true;
-        LastAction1 == LastAction2 ->
-            false;
-        ModTime1 > ModTime2 ->
-            true;
-        true ->
-            false
-    end.
-
-%% @doc Return true if the last action for the bucket
-%% is deleted and the action occurred over 24 hours ago.
--spec cleanup_bucket(cs_bucket()) -> boolean().
-cleanup_bucket(?RCS_BUCKET{last_action=created}) ->
-    false;
-cleanup_bucket(?RCS_BUCKET{last_action=deleted,
-                            modification_time=ModTime}) ->
-    timer:now_diff(os:timestamp(), ModTime) > 86400.
-
-%% @doc Ordering function for sorting a list of bucket records
-%% according to bucket name.
--spec bucket_sorter(cs_bucket(), cs_bucket()) -> boolean().
-bucket_sorter(?RCS_BUCKET{name=Bucket1},
-              ?RCS_BUCKET{name=Bucket2}) ->
-    Bucket1 =< Bucket2.
 
 update_user_record([], User, EmailUpdated) ->
     {User, EmailUpdated};
@@ -893,10 +786,10 @@ update_user_buckets(add, User, Bucket) ->
     %% with `Bucket'.
     case [B || B <- Buckets, B?RCS_BUCKET.name =:= Bucket?RCS_BUCKET.name] of
         [] ->
-            User?RCS_USER{buckets=[Bucket | Buckets]};
+            User?RCS_USER{buckets = [Bucket | Buckets]};
         [ExistingBucket] ->
             UpdBuckets = [Bucket | lists:delete(ExistingBucket, Buckets)],
-            User?RCS_USER{buckets=UpdBuckets}
+            User?RCS_USER{buckets = UpdBuckets}
     end;
 update_user_buckets(delete, User, Bucket) ->
     Buckets = User?RCS_USER.buckets,

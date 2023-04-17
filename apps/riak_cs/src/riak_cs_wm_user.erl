@@ -54,6 +54,7 @@
 -include("riak_cs.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% -------------------------------------------------------------------
 %% Webmachine callbacks
@@ -129,10 +130,9 @@ create_path(RD, Ctx) -> {"/riak-cs/user", RD, Ctx}.
 accept_json(RD, Ctx=#rcs_s3_context{user=undefined}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
     FF = jsx:decode(wrq:req_body(RD), [{labels, atom}]),
-    user_response(
-      riak_cs_user:create_user(maps:get(name, FF, <<>>),
-                               maps:get(email, FF, <<>>)),
-      ?JSON_TYPE, RD, Ctx);
+    Res = riak_cs_user:create_user(maps:get(name, FF, <<>>),
+                                   maps:get(email, FF, <<>>)),
+    user_response(Res, ?JSON_TYPE, RD, Ctx);
 accept_json(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
     Body = wrq:req_body(RD),
@@ -219,13 +219,6 @@ admin_check(false, RD, Ctx) ->
 etag(Body) ->
         riak_cs_utils:etag_from_binary(riak_cs_utils:md5(Body)).
 
--spec forbidden(atom(),
-                term(),
-                term(),
-                undefined | rcs_user(),
-                string(),
-                boolean()) ->
-                       {boolean() | {halt, term()}, term(), term()}.
 forbidden(_Method, RD, Ctx, undefined, _UserPathKey, false) ->
     %% anonymous access disallowed
     riak_cs_wm_utils:deny_access(RD, Ctx);
@@ -248,8 +241,6 @@ forbidden(_Method, RD, Ctx, User, UserPathKey, _) ->
     AdminCheckResult = admin_check(riak_cs_user:is_admin(User), RD, Ctx),
     get_user(AdminCheckResult, UserPathKey).
 
--spec get_user({boolean() | {halt, term()}, term(), term()}, string()) ->
-                      {boolean() | {halt, term()}, term(), term()}.
 get_user({false, RD, Ctx}, UserPathKey) ->
     handle_get_user_result(
       riak_cs_user:get_user(UserPathKey, Ctx#rcs_s3_context.riak_client),
@@ -290,8 +281,6 @@ str_to_status(<<"enabled">>) -> enabled;
 str_to_status(<<"disabled">>) -> disabled.
 
 
--spec handle_update_result({boolean(), rcs_user()}, term(), term()) ->
-    {ok, rcs_user()} | {halt, term()} | {error, term()}.
 handle_update_result({false, _User}, _RD, _Ctx) ->
     {halt, 200};
 handle_update_result({true, User}, _RD, Ctx) ->
@@ -299,7 +288,6 @@ handle_update_result({true, User}, _RD, Ctx) ->
                     riak_client=RcPid} = Ctx,
     riak_cs_user:update_user(User, UserObj, RcPid).
 
--spec set_resp_data(string(), term(), term()) -> term().
 set_resp_data(ContentType, RD, #rcs_s3_context{user=User}) ->
     UserDoc = format_user_record(User, ContentType),
     wrq:set_resp_body(UserDoc, RD).
@@ -310,7 +298,6 @@ user_key(RD) ->
         _         -> []
     end.
 
--spec user_xml_filter(#xmlText{} | #xmlElement{}, [{atom(), term()}]) -> [{atom(), term()}].
 user_xml_filter(#xmlText{}, Acc) ->
     Acc;
 user_xml_filter(Element, Acc) ->
@@ -376,8 +363,7 @@ user_response({halt, 200}, ContentType, RD, Ctx) ->
 user_response({error, Reason}, _, RD, Ctx) ->
     riak_cs_s3_response:api_error(Reason, RD, Ctx).
 
--spec format_user_record(rcs_user(), string()) -> binary().
 format_user_record(User, ?JSON_TYPE) ->
-    riak_cs_json:to_json(User);
+    iolist_to_binary(riak_cs_json:to_json(User));
 format_user_record(User, ?XML_TYPE) ->
     riak_cs_xml:to_xml(User).

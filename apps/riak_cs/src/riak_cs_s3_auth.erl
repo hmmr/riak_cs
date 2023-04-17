@@ -56,7 +56,7 @@
 %% Public API
 %% ===================================================================
 
--spec identify(RD::term(), #rcs_s3_context{}) ->
+-spec identify(#wm_reqdata{}, #rcs_s3_context{}) ->
           {string() | undefined,
            string() | {v4, v4_attrs()} | undefined} |
           {failed, Reason::atom()}.

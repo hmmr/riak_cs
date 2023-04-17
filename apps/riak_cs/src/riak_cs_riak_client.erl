@@ -29,12 +29,12 @@
 -export([pbc_pools/0,
          pbc_pool_name/1,
          rts_puller/4]).
--export([
-         stop/1,
+-export([stop/1,
          get_bucket/2,
          set_bucket_name/2,
          get_role/2,
          get_user/2,
+         get_user_with_pbc/2,
          save_user/3,
          set_manifest_bag/2,
          get_manifest_bag/1,
@@ -52,6 +52,7 @@
 -include("riak_cs.hrl").
 -include_lib("riak_pb/include/riak_pb_kv_codec.hrl").
 -include_lib("riakc/include/riakc.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(SERVER, ?MODULE).
 
@@ -229,7 +230,7 @@ handle_call({get_role, Id}, _From, State0) ->
     end;
 handle_call({get_user, UserKey}, _From, State) ->
     case ensure_master_pbc(State) of
-        {ok, #state{master_pbc=MasterPbc} = NewState} ->
+        {ok, #state{master_pbc = MasterPbc} = NewState} ->
             Res = get_user_with_pbc(MasterPbc, UserKey),
             {reply, Res, NewState};
         {error, Reason} ->

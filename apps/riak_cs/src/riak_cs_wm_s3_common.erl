@@ -163,10 +163,10 @@ validate_content_checksum(RD, #rcs_s3_context{submodule = Mod,
     R.
 
 -spec forbidden(#wm_reqdata{}, #rcs_s3_context{}) -> {boolean() | {halt, non_neg_integer()}, #wm_reqdata{}, #rcs_s3_context{}}.
-forbidden(RD, #rcs_s3_context{auth_module=AuthMod,
-                              submodule=Mod,
-                              riak_client=RcPid,
-                              exports_fun=ExportsFun} = Ctx) ->
+forbidden(RD, #rcs_s3_context{auth_module = AuthMod,
+                              submodule = Mod,
+                              riak_client = RcPid,
+                              exports_fun = ExportsFun} = Ctx) ->
     {AuthResult, AnonOk} =
         case AuthMod:identify(RD, Ctx) of
             failed ->

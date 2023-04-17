@@ -49,6 +49,7 @@
 
 -include("riak_cs.hrl").
 -include("s3_api.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(RCS_REWRITE_HEADER, "x-rcs-rewrite-path").
 -define(RCS_RAW_URL_HEADER, "x-rcs-raw-url").
@@ -157,7 +158,6 @@ bucket_from_host(HostHeader, RootHost) ->
 extract_bucket_from_host(Host, RootHost) ->
     %% Take the substring of the everything up to
     %% the '.' preceding the root host
-    logger:debug("0000000000000b ~p from ~p", [Host, RootHost]),
     Bucket =
         case re:run(Host, "(.+\.|)(s3\.(?:(?:[a-z0-9-])+\.)?amazonaws\.com)",
                     [{capture, all_but_first, list}]) of

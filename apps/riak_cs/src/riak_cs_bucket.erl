@@ -579,14 +579,12 @@ bucket_fun(delete, Bucket, _BagId, _ACL, KeyId, AdminCreds) ->
 bucket_json(Bucket, BagId, ACL, KeyId)  ->
     BagElement = case BagId of
                      undefined -> [];
-                     _ -> [{<<"bag">>, BagId}]
+                     _ -> [{bag, BagId}]
                  end,
-    binary_to_list(
-      iolist_to_binary(
-        mochijson2:encode({struct, [{<<"bucket">>, Bucket},
-                                    {<<"requester">>, list_to_binary(KeyId)},
-                                    riak_cs_acl_utils:acl_to_json_term(ACL)] ++
-                               BagElement}))).
+    jsx:encode([{bucket, Bucket},
+                {requester, KeyId},
+                riak_cs_acl_utils:acl_to_json_term(ACL)] ++
+                   BagElement).
 
 %% @doc Check for and resolve any conflict between
 %% a bucket record from a user record sibling and

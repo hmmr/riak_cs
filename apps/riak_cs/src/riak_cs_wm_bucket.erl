@@ -45,6 +45,7 @@
 
 -include("riak_cs.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -spec stats_prefix() -> bucket.
 stats_prefix() -> bucket.
@@ -64,17 +65,18 @@ malformed_request(RD, Ctx) ->
             {false, RD, Ctx}
     end.
 
--spec content_types_provided(#wm_reqdata{}, #rcs_s3_context{}) -> {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
+-spec content_types_provided(#wm_reqdata{}, #rcs_s3_context{}) ->
+          {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
 content_types_provided(RD, Ctx) ->
     {[{"application/xml", to_xml}], RD, Ctx}.
 
 -spec content_types_accepted(#wm_reqdata{}, #rcs_s3_context{}) ->
-                                    {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
+          {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
 content_types_accepted(RD, Ctx) ->
     content_types_accepted(wrq:get_req_header("content-type", RD), RD, Ctx).
 
 -spec content_types_accepted(undefined | string(), #wm_reqdata{}, #rcs_s3_context{}) ->
-                                    {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
+          {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
 content_types_accepted(CT, RD, Ctx) when CT =:= undefined;
                                          CT =:= [] ->
     content_types_accepted("application/octet-stream", RD, Ctx);
@@ -88,8 +90,8 @@ authorize(RD, #rcs_s3_context{user=User}=Ctx) ->
     RequestedAccess =
         riak_cs_acl_utils:requested_access(Method, false),
     Bucket = list_to_binary(wrq:path_info(bucket, RD)),
-    PermCtx = Ctx#rcs_s3_context{bucket=Bucket,
-                                 requested_perm=RequestedAccess},
+    PermCtx = Ctx#rcs_s3_context{bucket = Bucket,
+                                 requested_perm = RequestedAccess},
 
     case {Method, RequestedAccess} of
         {_, 'WRITE'} when User == undefined ->
@@ -105,7 +107,7 @@ authorize(RD, #rcs_s3_context{user=User}=Ctx) ->
 
 
 -spec to_xml(#wm_reqdata{}, #rcs_s3_context{}) ->
-                    {binary() | {'halt', term()}, #wm_reqdata{}, #rcs_s3_context{}}.
+          {binary() | {'halt', term()}, #wm_reqdata{}, #rcs_s3_context{}}.
 to_xml(RD, Ctx) ->
     handle_read_request(RD, Ctx).
 
@@ -138,7 +140,7 @@ accept_body(RD, Ctx=#rcs_s3_context{user=User,
                                     response_module=ResponseMod,
                                     riak_client=RcPid}) ->
     riak_cs_dtrace:dt_bucket_entry(?MODULE, <<"bucket_put">>,
-                                      [], [riak_cs_wm_utils:extract_name(User), Bucket]),
+                                   [], [riak_cs_wm_utils:extract_name(User), Bucket]),
     BagId = riak_cs_mb_helper:choose_bag_id(manifest, Bucket),
     case riak_cs_bucket:create_bucket(User,
                                       UserObj,

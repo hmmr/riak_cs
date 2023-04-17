@@ -42,6 +42,9 @@
              ]).
 
 -include("stanchion.hrl").
+-include_lib("webmachine/include/webmachine.hrl").
+-include_lib("kernel/include/logger.hrl").
+
 
 init(Config) ->
     %% Check if authentication is disabled and
@@ -49,7 +52,7 @@ init(Config) ->
     AuthBypass = proplists:get_value(auth_bypass, Config),
     {ok, #stanchion_context{auth_bypass=AuthBypass}}.
 
--spec service_available(term(), term()) -> {true, term(), term()}.
+-spec service_available(#wm_reqdata{}, #stanchion_context{}) -> {true, #wm_reqdata{}, #stanchion_context{}}.
 service_available(RD, Ctx) ->
     stanchion_wm_utils:service_available(RD, Ctx).
 
@@ -59,6 +62,7 @@ allowed_methods(RD, Ctx) ->
     {['POST'], RD, Ctx}.
 
 %% @doc Check that the request is from the admin user
+-spec is_authorized(#wm_reqdata{}, #stanchion_context{}) -> {boolean(), #wm_reqdata{}, #stanchion_context{}}.
 is_authorized(RD, Ctx=#stanchion_context{auth_bypass=AuthBypass}) ->
     AuthHeader = wrq:get_req_header("authorization", RD),
     case stanchion_wm_utils:parse_auth_header(AuthHeader, AuthBypass) of
@@ -73,36 +77,33 @@ is_authorized(RD, Ctx=#stanchion_context{auth_bypass=AuthBypass}) ->
             end
     end.
 
--spec post_is_create(term(), term()) -> {true, term(), term()}.
+-spec post_is_create(#wm_reqdata{}, #stanchion_context{}) -> {true, #wm_reqdata{}, #stanchion_context{}}.
 post_is_create(_RD, _Ctx) ->
     {true, _RD, _Ctx}.
 
 %% @doc Set the path for the new bucket resource and set
 %% the Location header to generate a 201 Created response.
-%% -spec create_path(term(), term()) -> {string(), term(), term()}.
+-spec create_path(#wm_reqdata{}, #stanchion_context{}) -> {string(), #wm_reqdata{}, #stanchion_context{}}.
 create_path(RD, Ctx) ->
     {wrq:disp_path(RD), RD, Ctx}.
 
--spec content_types_accepted(term(), term()) ->
-                                    {[{string(), atom()}], term(), term()}.
+-spec content_types_accepted(#wm_reqdata{}, #stanchion_context{}) ->
+          {[{string(), atom()}], #wm_reqdata{}, #stanchion_context{}}.
 content_types_accepted(RD, Ctx) ->
     {[{"application/json", accept_body}], RD, Ctx}.
 
 %% @doc Create a bucket from a POST
--spec accept_body(term(), term()) ->
-                         {true | {halt, pos_integer()},
-                          term(),
-                          term()}.
+-spec accept_body(#wm_reqdata{}, #stanchion_context{}) ->
+          {true | {halt, pos_integer()},
+           #wm_reqdata{}, #stanchion_context{}}.
 accept_body(RD, Ctx) ->
     %% @TODO POST is not the best method to use to
     %% handle creation of named buckets. Change the
     %% interface so that a PUT to /buckets/<bucketname>
     %% is the method for creating a specific bucket.
     Body = wrq:req_body(RD),
-    %% @TODO Handle json decoding exceptions
-    ParsedBody = mochijson2:decode(Body),
-    FieldList = stanchion_wm_utils:json_to_proplist(ParsedBody),
-    case stanchion_server:create_bucket(FieldList) of
+    case stanchion_server:create_bucket(
+           jsx:decode(Body, [{labels, atom}])) of
         ok ->
             {true, RD, Ctx};
         {error, Reason} ->

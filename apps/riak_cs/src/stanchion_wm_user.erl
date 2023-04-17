@@ -86,12 +86,11 @@ content_types_accepted(RD, Ctx) ->
 
 %% @doc Create a user from a POST
 -spec accept_body(#wm_reqdata{}, #stanchion_context{}) ->
-                         {true | {halt, pos_integer()},
-                          #wm_reqdata{}, #stanchion_context{}}.
+          {true | {halt, pos_integer()},
+           #wm_reqdata{}, #stanchion_context{}}.
 accept_body(RD, Ctx) ->
     Body = wrq:req_body(RD),
     KeyId = wrq:path_info(key_id, RD),
-    logger:debug("Body: ~p", [Body]),
     FF = jsx:decode(Body, [{labels, atom}]),
     case stanchion_server:update_user(KeyId, FF) of
         ok ->

@@ -50,7 +50,7 @@
                      , key_id :: string()
                      , key_secret :: string()
                      , canonical_id :: string()
-                     , buckets=[] :: [cs_bucket()]
+                     , buckets = [] :: [cs_bucket()]
                      , status = enabled :: enabled | disabled
                      }).
 

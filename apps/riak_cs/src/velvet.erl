@@ -381,7 +381,7 @@ url(Ip, Port, Ssl, Path) ->
 
 %% @doc Calculate an MD5 hash of a request body.
 content_md5(Body) ->
-    base64:encode_to_string(riak_cs_utils:md5(list_to_binary(Body))).
+    base64:encode_to_string(riak_cs_utils:md5(Body)).
 
 %% @doc Construct a MOSS authentication header
 auth_header(HttpVerb, ContentType, Headers, Path, {AuthKey, AuthSecret}) ->

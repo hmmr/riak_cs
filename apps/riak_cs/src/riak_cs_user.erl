@@ -40,6 +40,7 @@
 
 -include("riak_cs.hrl").
 -include_lib("riakc/include/riakc.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -ifdef(TEST).
 -compile(export_all).
@@ -68,8 +69,6 @@ create_user(Name, Email, KeyId, Secret) ->
             Error
     end.
 
--spec create_credentialed_user({ok, {term(), term()}}, rcs_user()) ->
-                                      {ok, rcs_user()} | {error, term()}.
 create_credentialed_user({ok, AdminCreds}, User) ->
     %% Make a call to the user request serialization service.
     StatsKey = [velvet, create_user],
@@ -124,20 +123,19 @@ update_user(User, UserObj, RcPid) ->
     handle_update_user(Result, User, UserObj, RcPid).
 
 %% @doc Retrieve a Riak CS user's information based on their id string.
--spec get_user('undefined' | list(), riak_client()) -> {ok, {rcs_user(), riakc_obj:riakc_obj()}} | {error, term()}.
+-spec get_user(undefined | iodata(), riak_client()) -> {ok, {rcs_user(), riakc_obj:riakc_obj()}} | {error, term()}.
 get_user(undefined, _RcPid) ->
     {error, no_user_key};
 get_user(KeyId, RcPid) ->
     %% Check for and resolve siblings to get a
     %% coherent view of the bucket ownership.
-    BinKey = list_to_binary(KeyId),
-    case riak_cs_riak_client:get_user(RcPid, BinKey) of
+    BinKey = iolist_to_binary([KeyId]),
+    case catch riak_cs_riak_client:get_user(RcPid, BinKey) of
         {ok, {Obj, KeepDeletedBuckets}} ->
             {ok, {from_riakc_obj(Obj, KeepDeletedBuckets), Obj}};
         Error ->
             Error
     end.
-
 -spec from_riakc_obj(riakc_obj:riakc_obj(), boolean()) -> rcs_user().
 from_riakc_obj(Obj, KeepDeletedBuckets) ->
     case riakc_obj:value_count(Obj) of
@@ -145,7 +143,7 @@ from_riakc_obj(Obj, KeepDeletedBuckets) ->
             Value = binary_to_term(riakc_obj:get_value(Obj)),
             User = update_user_record(Value),
             Buckets = riak_cs_bucket:resolve_buckets([Value], [], KeepDeletedBuckets),
-            User?RCS_USER{buckets=Buckets};
+            User?RCS_USER{buckets = Buckets};
         0 ->
             error(no_value);
         N ->
@@ -288,10 +286,9 @@ validate_email(EmailAddr) ->
             ok
     end.
 
-update_user_record(User=?RCS_USER{buckets=Buckets}) ->
-    User?RCS_USER{buckets=[riak_cs_bucket:update_bucket_record(Bucket) ||
-                              Bucket <- Buckets]};
-update_user_record(User=#moss_user_v1{}) ->
+update_user_record(User = ?RCS_USER{buckets = Buckets}) ->
+    User?RCS_USER{buckets = [riak_cs_bucket:update_bucket_record(Bucket) || Bucket <- Buckets]};
+update_user_record(User = #moss_user_v1{}) ->
     ?RCS_USER{name=User#moss_user_v1.name,
               display_name=User#moss_user_v1.display_name,
               email=User#moss_user_v1.email,

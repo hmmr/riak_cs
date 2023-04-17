@@ -389,11 +389,11 @@ validate_acl({error, _}=Error, _) ->
 acl_to_json_term(?ACL{owner={DisplayName, CanonicalId, KeyId},
                       grants=Grants,
                       creation_time=CreationTime}) ->
-    {<<"acl">>,
-     {struct, [{<<"version">>, 1},
-               owner_to_json_term(DisplayName, CanonicalId, KeyId),
-               grants_to_json_term(Grants, []),
-               erlang_time_to_json_term(CreationTime)]}
+    {acl,
+     [{version, 1},
+      owner_to_json_term(DisplayName, CanonicalId, KeyId),
+      grants_to_json_term(Grants, []),
+      erlang_time_to_json_term(CreationTime)]
     }.
 
 
@@ -706,50 +706,40 @@ process_permission([Content], Grant) ->
 
 %% @doc Convert an information from an ACL into erlang
 %% terms that can be encoded using `mochijson2:encode'.
--spec erlang_time_to_json_term(erlang:timestamp()) -> term().
 erlang_time_to_json_term({MegaSecs, Secs, MicroSecs}) ->
-    {<<"creation_time">>,
-     {struct, [{<<"mega_seconds">>, MegaSecs},
-               {<<"seconds">>, Secs},
-               {<<"micro_seconds">>, MicroSecs}]}
+    {creation_time,
+     [{mega_seconds, MegaSecs},
+      {seconds, Secs},
+      {micro_seconds, MicroSecs}]
     }.
 
 %% @doc Convert grantee information from an ACL into erlang
 %% terms that can be encoded using `mochijson2:encode'.
--spec grantee_to_json_term(acl_grant()) -> term().
 grantee_to_json_term({Group, Perms}) when is_atom(Group) ->
-    {struct, [{<<"group">>, list_to_binary(
-                              atom_to_list(Group))},
-              {<<"permissions">>, permissions_to_json_term(Perms)}]};
+    [{group, Group},
+     {permissions, Perms}];
 grantee_to_json_term({{DisplayName, CanonicalId}, Perms}) ->
-    {struct, [{<<"display_name">>, list_to_binary(DisplayName)},
-              {<<"canonical_id">>, list_to_binary(CanonicalId)},
-              {<<"permissions">>, permissions_to_json_term(Perms)}]}.
+    [{display_name, DisplayName},
+     {canonical_id, CanonicalId},
+     {permissions, Perms}].
 
 %% @doc Convert owner information from an ACL into erlang
 %% terms that can be encoded using `mochijson2:encode'.
--spec grants_to_json_term([acl_grant()], [term()]) -> term().
 grants_to_json_term([], GrantTerms) ->
-    {<<"grants">>, GrantTerms};
+    {grants, GrantTerms};
 grants_to_json_term([HeadGrant | RestGrants], GrantTerms) ->
     grants_to_json_term(RestGrants,
                         [grantee_to_json_term(HeadGrant) | GrantTerms]).
 
 %% @doc Convert owner information from an ACL into erlang
 %% terms that can be encoded using `mochijson2:encode'.
--spec owner_to_json_term(string(), string(), string()) -> term().
 owner_to_json_term(DisplayName, CanonicalId, KeyId) ->
-    {<<"owner">>,
-     {struct, [{<<"display_name">>, list_to_binary(DisplayName)},
-               {<<"canonical_id">>, list_to_binary(CanonicalId)},
-               {<<"key_id">>, list_to_binary(KeyId)}]}
+    {owner,
+     [{display_name, DisplayName},
+      {canonical_id, CanonicalId},
+      {key_id, KeyId}]
     }.
 
-%% @doc Convert a list of permissions into binaries
-%% that can be encoded using `mochijson2:encode'.
--spec permissions_to_json_term(acl_perms()) -> term().
-permissions_to_json_term(Perms) ->
-    [list_to_binary(atom_to_list(Perm)) || Perm <- Perms].
 
 
 %% ===================================================================
