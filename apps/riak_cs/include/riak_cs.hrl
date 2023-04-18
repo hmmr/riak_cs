@@ -29,10 +29,9 @@
 
 -type riak_client() :: pid().
 
--define(S3_API_MOD, riak_cs_s3_rewrite).
--define(S3_LEGACY_API_MOD, riak_cs_s3_rewrite_legacy).
+-define(AWS_API_MOD, riak_cs_aws_rewrite).
 -define(OOS_API_MOD, riak_cs_oos_rewrite).
--define(S3_RESPONSE_MOD, riak_cs_s3_response).
+-define(AWS_RESPONSE_MOD, riak_cs_s3_response).
 -define(OOS_RESPONSE_MOD, riak_cs_oos_response).
 
 -define(DEFAULT_AUTH_MODULE, riak_cs_s3_auth).

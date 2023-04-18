@@ -68,7 +68,8 @@
          quota_modules/0,
          active_delete_threshold/0,
          fast_user_get/0,
-         root_host/0,
+         s3_root_host/0,
+         iam_root_host/0,
          stanchion/0,
          stanchion_subnet_and_netmask/0,
          stanchion_hosting_mode/0,
@@ -491,9 +492,13 @@ active_delete_threshold() ->
 fast_user_get() ->
     get_env(riak_cs, fast_user_get, false).
 
--spec root_host() -> string().
-root_host() ->
-    get_env(riak_cs, cs_root_host, ?ROOT_HOST).
+-spec s3_root_host() -> string().
+s3_root_host() ->
+    get_env(riak_cs, s3_root_host, ?S3_ROOT_HOST).
+
+-spec iam_root_host() -> string().
+iam_root_host() ->
+    get_env(riak_cs, iam_root_host, ?IAM_ROOT_HOST).
 
 -spec stanchion_hosting_mode() -> auto | riak_cs_only | stanchion_only | riak_cs_with_stanchion.
 stanchion_hosting_mode() ->

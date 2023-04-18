@@ -22,7 +22,9 @@
 -ifndef(RIAK_CS_S3_API_HRL).
 -define(RIAK_CS_S3_API_HRL, included).
 
--define(ROOT_HOST, "s3.amazonaws.com").
+-define(S3_ROOT_HOST, "s3.amazonaws.com").
+-define(IAM_ROOT_HOST, "iam.amazonaws.com").
+
 -define(SUBRESOURCES, ["acl", "location", "logging", "notification", "partNumber",
                        "policy", "requestPayment", "torrent", "uploadId", "uploads",
                        "versionId", "versioning", "versions", "website",
