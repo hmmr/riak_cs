@@ -24,12 +24,25 @@
                   mochiweb_headers(), Url::string()) ->
     {mochiweb_headers(), string()}.
 
--export([original_resource/1,
+-export([rewrite/5,
+         original_resource/1,
          raw_url/1
         ]).
 
 -include("riak_cs.hrl").
+-include("riak_cs_web.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
+
+
+%% no-rewrite, for calls directly to riak_cs
+-spec rewrite(Method::atom(), Scheme::atom(), Vsn::{integer(), integer()},
+              mochiweb_headers(), Url::string()) ->
+    {mochiweb_headers(), string()}.
+rewrite(_Method, _Scheme, _Vsn, Headers, Url) ->
+    {Path, _QS, _} = mochiweb_util:urlsplit_path(Url),
+    RewrittenHeaders = mochiweb_headers:default(
+                         ?RCS_RAW_URL_HEADER, Url, Headers),
+    {RewrittenHeaders, Path}.
 
 
 -spec original_resource(#wm_reqdata{}) -> undefined | {string(), [{term(), term()}]}.

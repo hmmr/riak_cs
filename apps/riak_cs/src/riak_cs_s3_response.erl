@@ -305,7 +305,7 @@ error_resource(Tag, RD)
     end;
 
 error_resource(_Tag, RD) ->
-    {OrigResource, _} = riak_cs_s3_rewrite:original_resource(RD),
+    {OrigResource, _} = riak_cs_rewrite:original_resource(RD),
     OrigResource.
 
 toomanybuckets_response(Current, BucketLimit, RD, Ctx) ->

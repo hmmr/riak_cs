@@ -105,6 +105,12 @@
 
 -type mochiweb_headers() :: gb_trees:tree().
 
+-define(RCS_REWRITE_HEADER, "x-rcs-rewrite-path").
+-define(RCS_RAW_URL_HEADER, "x-rcs-raw-url").
+-define(OOS_API_VSN_HEADER, "x-oos-api-version").
+-define(OOS_ACCOUNT_HEADER, "x-oos-account").
+
+
 -define(JSON_TYPE, "application/json").
 -define(XML_TYPE, "application/xml").
 

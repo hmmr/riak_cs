@@ -24,10 +24,9 @@
 -export([rewrite/5, original_resource/1]).
 
 -include("riak_cs.hrl").
+-include("riak_cs_web.hrl").
+-include_lib("webmachine/include/webmachine.hrl").
 
--define(RCS_REWRITE_HEADER, "x-rcs-rewrite-path").
--define(OOS_API_VSN_HEADER, "x-oos-api-version").
--define(OOS_ACCOUNT_HEADER, "x-oos-account").
 
 -ifdef(TEST).
 -compile(export_all).

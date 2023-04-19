@@ -43,7 +43,7 @@ start_link() ->
 
     riak_cs_stats:init(),
 
-    RewriteMod = application:get_env(riak_cs, rewrite_module, ?S3_API_MOD),
+    RewriteMod = application:get_env(riak_cs, rewrite_module, ?AWS_API_MOD),
     ok = application:set_env(webmachine_mochiweb, rewrite_modules, [{object_web, RewriteMod}]),
 
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).

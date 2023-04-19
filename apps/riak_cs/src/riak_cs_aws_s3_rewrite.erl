@@ -51,11 +51,10 @@
         ]).
 
 -include("riak_cs.hrl").
+-include("riak_cs_web.hrl").
 -include("s3_api.hrl").
+-include_lib("webmachine/include/webmachine.hrl").
 -include_lib("kernel/include/logger.hrl").
-
--define(RCS_REWRITE_HEADER, "x-rcs-rewrite-path").
--define(RCS_RAW_URL_HEADER, "x-rcs-raw-url").
 
 -ifdef(TEST).
 -compile(export_all).

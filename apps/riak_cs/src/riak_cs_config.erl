@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -173,12 +173,10 @@ cs_version() ->
 
 -spec api() -> s3 | oos.
 api() ->
-    api(get_env(riak_cs, rewrite_module, ?S3_API_MOD)).
+    api(get_env(riak_cs, rewrite_module, ?AWS_API_MOD)).
 
 -spec api(atom() | undefined) -> s3 | oos | undefined.
-api(?S3_API_MOD) ->
-    s3;
-api(?S3_LEGACY_API_MOD) ->
+api(?AWS_API_MOD) ->
     s3;
 api(?OOS_API_MOD) ->
     oos;
@@ -240,7 +238,7 @@ response_module() ->
 response_module(oos) ->
     ?OOS_RESPONSE_MOD;
 response_module(_) ->
-    ?S3_RESPONSE_MOD.
+    ?AWS_RESPONSE_MOD.
 
 -spec use_t2b_compression() -> boolean().
 use_t2b_compression() ->

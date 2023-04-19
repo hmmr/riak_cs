@@ -249,7 +249,7 @@ drop_slash(A) ->
                                       Presented::string(), Calculated::string()}}.
 authenticate_v4(?RCS_USER{key_secret = SecretAccessKey} = _User, AuthAttrs, RD) ->
     Method = wrq:method(RD),
-    {Path, Qs} = riak_cs_s3_rewrite:raw_url(RD),
+    {Path, Qs} = riak_cs_aws_s3_rewrite:raw_url(RD),
     AllHeaders = riak_cs_wm_utils:normalize_headers(RD),
     authenticate_v4(SecretAccessKey, AuthAttrs, Method, Path, Qs, AllHeaders).
 

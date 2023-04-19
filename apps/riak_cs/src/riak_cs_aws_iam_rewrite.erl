@@ -27,6 +27,7 @@
 
 -include("riak_cs.hrl").
 -include("s3_api.hrl").
+-include_lib("webmachine/include/webmachine.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -spec rewrite(atom(), atom(), {integer(), integer()}, mochiweb_headers(), string()) ->
@@ -45,7 +46,6 @@ raw_url(RD) ->
     riak_cs_rewrite:raw_url(RD).
 
 rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
-    Host = mochiweb_headers:get_value("host", Headers),
     RewrittenPath =
         rewrite_path(Method, Path, QueryString),
     RewrittenHeaders =
@@ -57,5 +57,23 @@ rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
     {RewrittenHeaders, RewrittenPath}.
 
 
-rewrite_path(_Method, "/", _QS) ->
-    "/roles";
+rewrite_path(Method, "/", QS) ->
+    Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),
+    case lists:member(Action, supported_actions(Method)) of
+        true ->
+            "/roles";
+        false when Action =:= undefined ->
+            logger:warning("No 'Action' parameter in IAM request", []),
+            "/";
+        false ->
+            logger:warning("Unsupported action (~s) in IAM request", [Action])
+    end.
+
+supported_actions('GET') ->
+    ["GetRole", "ListRoles"];
+supported_actions('POST') ->
+    ["CreateRole"];
+supported_actions('DELETE') ->
+    ["DeleteRole"];
+supported_actions(_) ->
+    [].

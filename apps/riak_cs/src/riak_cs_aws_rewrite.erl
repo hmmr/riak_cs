@@ -27,30 +27,55 @@
         ]).
 
 -include("riak_cs.hrl").
--include("s3_api.hrl").
+-include("riak_cs_web.hrl").
+-include_lib("webmachine/include/webmachine.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 
-aws_service_submodule(?S3_ROOT_HOST) -> riak_cs_aws_s3_rewrite;
-aws_service_submodule(?IAM_ROOT_HOST) -> riak_cs_aws_iam_rewrite.
-
 -spec rewrite(atom(), atom(), {integer(), integer()}, mochiweb_headers(), string()) ->
-                     {mochiweb_headers(), string()}.
+          {mochiweb_headers(), string()}.
 rewrite(Method, Scheme, Vsn, Headers, Url) ->
-    Mod = aws_service_submodule(root_host(Url)),
-    Mod:rewrite(Method, Scheme, Vsn, Headers, Url).
-
-root_host(Url) ->
-    #{path := Path} = uri_string:parse(Url),
-    case lists:search(
-           fun(A) -> re:run(Path, A++"$") /= nomatch end,
-           [?S3_ROOT_HOST, ?IAM_ROOT_HOST]) of
-        {value, Found} ->
-            Found;
-        false ->
-            logger:warning("Request URL (\"~s\") not recognized as any AWS service", [Url]),
-            bad_aws_host
+    Host = mochiweb_headers:get_value("host", Headers),
+    case service_from_host(Host) of
+        no_rewrite ->
+            logger:debug("not rewriting direct request for us: ~s", [Host]),
+            riak_cs_rewrite:rewrite(Method, Scheme, Vsn, Headers, Url);
+        {unsupported, A} ->
+            logger:warning("Service ~s is not supported", [A]),
+            {Headers, Url};
+        Mod ->
+            logger:debug("rewriting url for service ~s", [Mod]),
+            Mod:rewrite(Method, Scheme, Vsn, Headers, Url)
     end.
+
+service_from_host(Host) ->
+    {AttempRewrite, Third, Fourth} =
+        case lists:reverse(
+               string:split(string:to_lower(Host), ".", all)) of
+            ["com", "amazonaws", A] ->
+                {true, A, ""};
+            ["com", "amazonaws", A, B|_] ->
+                {true, A, B};
+            _ ->
+                {false, "", ""}
+        end,
+    case AttempRewrite of
+        true ->
+            case aws_service_submodule(Third) of
+                {unsupported, _} ->
+                    %% third item is a region, then fourth must be it
+                    aws_service_submodule(Fourth);
+                Service ->
+                    Service
+            end;
+        false ->
+            no_rewrite
+    end.
+
+aws_service_submodule("s3") -> riak_cs_aws_s3_rewrite;
+aws_service_submodule("iam") -> riak_cs_aws_iam_rewrite;
+aws_service_submodule(A) ->  {unsupported, A}.
+
 
 -spec original_resource(#wm_reqdata{}) -> undefined | {string(), [{term(),term()}]}.
 original_resource(RD) ->
