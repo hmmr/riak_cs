@@ -57,23 +57,25 @@ rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
     {RewrittenHeaders, RewrittenPath}.
 
 
-rewrite_path(Method, "/", QS) ->
-    Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),
-    case lists:member(Action, supported_actions(Method)) of
-        true ->
-            "/roles";
-        false when Action =:= undefined ->
-            logger:warning("No 'Action' parameter in IAM request", []),
-            "/";
-        false ->
-            logger:warning("Unsupported action (~s) in IAM request", [Action])
-    end.
+rewrite_path('POST', "/", _QS) ->
+    "/roles".
+%% rewrite_path(Method, "/", QS) ->
+%%     Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),
+%%     case lists:member(Action, supported_actions(Method)) of
+%%         true ->
+%%             "/roles";
+%%         false when Action =:= undefined ->
+%%             logger:warning("No 'Action' parameter in IAM request", []),
+%%             "/";
+%%         false ->
+%%             logger:warning("Unsupported action (~s) in IAM request", [Action])
+%%     end.
 
-supported_actions('GET') ->
-    ["GetRole", "ListRoles"];
-supported_actions('POST') ->
-    ["CreateRole"];
-supported_actions('DELETE') ->
-    ["DeleteRole"];
-supported_actions(_) ->
-    [].
+%% supported_actions('GET') ->
+%%     ["GetRole", "ListRoles"];
+%% supported_actions('POST') ->
+%%     ["CreateRole"];
+%% supported_actions('DELETE') ->
+%%     ["DeleteRole"];
+%% supported_actions(_) ->
+%%     [].

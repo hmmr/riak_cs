@@ -86,7 +86,7 @@ base_resources() ->
      {["buckets", bucket, "objects", object, "versions", versionId, "acl"], riak_cs_wm_s3_common, props(riak_cs_wm_object_acl)},
      %% Roles
      {["roles"], riak_cs_wm_iam_common, props(riak_cs_wm_roles)},
-     {["roles", role], riak_cs_wm_iam_common, props(riak_cs_wm_role)}
+     {["roles", role], riak_cs_wm_iam_common, props(riak_cs_wm_roles)}
     ].
 
 -spec one_three_resources(undefined | pos_integer()) -> [dispatch_rule()].

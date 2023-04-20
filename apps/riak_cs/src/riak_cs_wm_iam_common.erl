@@ -70,7 +70,7 @@
 %% Webmachine callbacks
 %% ===================================================================
 
--spec init([{atom(),term()}]) -> {ok, #rcs_iam_context{}}.
+-spec init([proplists:proplist()]) -> {ok, #rcs_iam_context{}}.
 init(Config) ->
     catch dyntrace:put_tag(pid_to_list(self())),
     Mod = proplists:get_value(submodule, Config),
