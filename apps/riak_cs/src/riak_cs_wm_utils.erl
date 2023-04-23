@@ -79,7 +79,7 @@
 -define(QS_KEYID, "AWSAccessKeyId").
 -define(QS_SIGNATURE, "Signature").
 
--type acl_or_error() ::  {ok, #acl_v2{}} |
+-type acl_or_error() ::  {ok, ?ACL{}} |
                          {error, 'invalid_argument'} |
                          {error, 'unresolved_grant_email'}.
 
@@ -818,6 +818,8 @@ object_access_authorize_helper(AccessType, Deletable, SkipAcl,
        andalso is_boolean(Deletable)
        andalso is_boolean(SkipAcl) ->
     #key_context{bucket_object=BucketObj} = LocalCtx,
+    #key_context{bucket=_B} = LocalCtx,
+    ?LOG_DEBUG("_Bucket ~p", [_B]),
     case translate_bucket_policy(PolicyMod, BucketObj) of
         {error, multiple_bucket_owners=E} ->
             %% We want to bail out early if there are siblings when

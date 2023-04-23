@@ -31,7 +31,6 @@
 -define(PART_MANIFEST, #part_manifest_v2).
 -define(PART_MANIFEST_RECNAME, part_manifest_v2).
 -define(MULTIPART_DESCR, #multipart_descr_v1).
--define(ACL, #acl_v2).
 -define(PART_DESCR, #part_descr_v1).
 
 -define(LFS_DEFAULT_OBJECT_VERSION, <<"null">>).

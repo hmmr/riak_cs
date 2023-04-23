@@ -399,19 +399,15 @@ versioning_json_to_struct({struct, Doc}) ->
 %% ACL request.
 -spec bucket_acl_json(acl(), string()) -> string().
 bucket_acl_json(ACL, KeyId)  ->
-    binary_to_list(
-      iolist_to_binary(
-        mochijson2:encode({struct, [{<<"requester">>, list_to_binary(KeyId)},
-                                    riak_cs_acl_utils:acl_to_json_term(ACL)]}))).
+    jason:encode([{requester, KeyId},
+                  {acl, ACL}],
+                 [{records, [{acl_v3, record_info(fields, acl_v3)}]}]).
 
 %% @doc Generate a JSON document to use for a bucket
 -spec bucket_policy_json(binary(), string()) -> string().
 bucket_policy_json(PolicyJson, KeyId)  ->
-    binary_to_list(
-      iolist_to_binary(
-        mochijson2:encode({struct, [{<<"requester">>, list_to_binary(KeyId)},
-                                    {<<"policy">>, PolicyJson}]
-                          }))).
+    jason:encode([{requester, KeyId},
+                  {policy, PolicyJson}]).
 
 %% @doc Generate a JSON document to use in setting bucket versioning option
 -spec bucket_versioning_json(bucket_versioning(), string()) -> string().
@@ -577,14 +573,15 @@ bucket_fun(delete, Bucket, _BagId, _ACL, KeyId, AdminCreds) ->
 %% creation request.
 -spec bucket_json(binary(), bag_id(), acl(), string()) -> string().
 bucket_json(Bucket, BagId, ACL, KeyId)  ->
+    logger:debug("ACL: ~p", [ACL]),
     BagElement = case BagId of
                      undefined -> [];
                      _ -> [{bag, BagId}]
                  end,
-    jsx:encode([{bucket, Bucket},
-                {requester, KeyId},
-                riak_cs_acl_utils:acl_to_json_term(ACL)] ++
-                   BagElement).
+    jason:encode([{bucket, Bucket},
+                  {requester, KeyId},
+                  ACL] ++ BagElement, [{records, [{moss_bucket_v1, record_info(fields, moss_bucket_v1)},
+                                                  {acl_v3, record_info(fields, acl_v3)}]}]).
 
 %% @doc Check for and resolve any conflict between
 %% a bucket record from a user record sibling and

@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -34,8 +34,7 @@
 -endif.
 
 %% Public API
--export([acl/4,
-         default_acl/3,
+-export([default_acl/3,
          canned_acl/3,
          specific_acl_grant/3,
          acl_from_xml/3,
@@ -46,44 +45,34 @@
          validate_acl/2
         ]).
 
-%% Public API
--export([
-         acl_to_json_term/1
-        ]).
-
 %% ===================================================================
 %% Public API
 %% ===================================================================
-
-%% @doc Construct an acl. The structure is the same for buckets
-%% and objects.
--spec acl(string(), string(), string(), [acl_grant()]) -> #acl_v2{}.
-acl(DisplayName, CanonicalId, KeyId, Grants) ->
-    OwnerData = {DisplayName, CanonicalId, KeyId},
-    ?ACL{owner=OwnerData,
-         grants=Grants}.
 
 %% @doc Construct a default acl. The structure is the same for buckets
 %% and objects.
--spec default_acl(string(), string(), string()) -> #acl_v2{}.
+-spec default_acl(string(), string(), string()) -> acl().
 default_acl(DisplayName, CanonicalId, KeyId) ->
-    acl(DisplayName,
-        CanonicalId,
-        KeyId,
-        [{{DisplayName, CanonicalId}, ['FULL_CONTROL']}]).
+    ?ACL{owner = #{display_name => DisplayName,
+                   canonical_id => CanonicalId,
+                   key_id => KeyId},
+         grants = [?ACL_GRANT{grantee = #{display_name => DisplayName,
+                                          canonical_id => CanonicalId},
+                              perms = ['FULL_CONTROL']}]
+        }.
 
 %% @doc Map a x-amz-acl header value to an
 %% internal acl representation.
 -spec canned_acl(undefined | string(),
                  acl_owner(),
-                 undefined | acl_owner()) -> #acl_v2{}.
-canned_acl(undefined, {Name, CanonicalId, KeyId}, _) ->
-    default_acl(Name, CanonicalId, KeyId);
+                 undefined | acl_owner()) -> acl().
+canned_acl(undefined, Owher, _) ->
+    default_acl(Owher);
 canned_acl(HeaderVal, Owner, BucketOwner) ->
-    {Name, CanonicalId, KeyId} = Owner,
-    acl(Name, CanonicalId, KeyId, canned_acl_grants(HeaderVal,
-                                                    Owner,
-                                                    BucketOwner)).
+    ?ACL{owner = Owner,
+         grants = canned_acl_grants(HeaderVal,
+                                    Owner,
+                                    BucketOwner)}.
 
 %% @doc Turn a list of header-name, value pairs into an ACL. If the header
 %% values don't parse correctly, return `{error, invalid_argument}'. If
@@ -94,13 +83,13 @@ canned_acl(HeaderVal, Owner, BucketOwner) ->
                          [{HeaderName :: acl_perm(),
                            HeaderValue :: string()}],
                          riak_client()) ->
-    {ok, #acl_v2{}} |
-    {error, 'invalid_argument'} |
-    {error, 'unresolved_grant_email'}.
+    {ok, acl()} |
+    {error, invalid_argument} |
+    {error, unresolved_grant_email}.
 specific_acl_grant(Owner, Headers, RcPid) ->
     %% TODO: this function is getting a bit long and confusing
     Grants = [{HeaderName, parse_grant_header_value(GrantString)} ||
-            {HeaderName, GrantString} <- Headers],
+                 {HeaderName, GrantString} <- Headers],
     case promote_failure([Grant || {_HeaderName, Grant} <- Grants]) of
         {error, invalid_argument}=E ->
             E;
@@ -124,8 +113,6 @@ specific_acl_grant(Owner, Headers, RcPid) ->
 
 %% @doc Attempt to parse a list of ACL headers into a list
 %% of `acl_grant()'s.
--spec valid_headers_to_grants(list(), riak_client()) ->
-    {ok, list(acl_grant())} | {error, invalid_argument}.
 valid_headers_to_grants(Pairs, RcPid) ->
     MaybeGrants = [header_to_acl_grants(HeaderName, Grants, RcPid) ||
             {HeaderName, Grants} <- Pairs],
@@ -139,23 +126,20 @@ valid_headers_to_grants(Pairs, RcPid) ->
 %% @doc Attempt to turn a `acl_perm()' and list of grants
 %% into a list of `acl_grant()'s. At this point, email
 %% addresses have already been resolved, and headers parsed.
--spec header_to_acl_grants(acl_perm(), list(), riak_client()) ->
-    {ok, list(acl_grant())} | {error, invalid_argument}.
 header_to_acl_grants(HeaderName, Grants, RcPid) ->
-    MaybeGrantList = lists:map(fun (Identifier) ->
-                    header_to_grant(HeaderName, Identifier, RcPid) end, Grants),
+    MaybeGrantList = lists:map(
+                       fun (Id) -> header_to_grant(HeaderName, Id, RcPid) end,
+                       Grants),
     case promote_failure(MaybeGrantList) of
         {ok, GrantList} ->
             {ok, lists:foldl(fun add_grant/2, [], GrantList)};
-        {error, invalid_argument}=E ->
+        {error, invalid_argument} = E ->
             E
     end.
 
 %% Attempt to turn an `acl_perm()' and `grant_user_identifier()'
 %% into an `acl_grant()'. If the `grant_user_identifier()' uses an
 %% id, and the name can't be found, returns `{error, invalid_argument}'.
--spec header_to_grant(acl_perm(), {grant_user_identifier(), string()}, riak_client()) ->
-    {ok, acl_grant()} | {error, invalid_argument}.
 header_to_grant(Permission, {id, ID}, RcPid) ->
     case name_for_canonical(ID, RcPid) of
         {ok, DisplayName} ->
@@ -166,9 +150,11 @@ header_to_grant(Permission, {id, ID}, RcPid) ->
 header_to_grant(Permission, {uri, URI}, _RcPid) ->
     case URI of
         ?ALL_USERS_GROUP ->
-            {ok, {'AllUsers', [Permission]}};
+            {ok, ?ACL_GRANT{grantee = 'AllUsers',
+                            perms = [Permission]}};
         ?AUTH_USERS_GROUP ->
-            {ok, {'AuthUsers', [Permission]}}
+            {ok, ?ACL_GRANT{grantee = 'AuthUsers',
+                            perms = [Permission]}}
     end.
 
 %% @doc Attempt to parse a header into
@@ -218,15 +204,12 @@ parse_mapping(_Else) ->
     {error, invalid_argument}.
 
 %% @doc Return true if `URI' is a valid group grant URI.
--spec valid_uri(string()) -> boolean().
 valid_uri(URI) ->
     %% log delivery is not yet a supported option
     lists:member(URI, [?ALL_USERS_GROUP, ?AUTH_USERS_GROUP]).
 
 %% @doc Combine the first and second argument, if the second
 %% is wrapped in `ok'. Otherwise return the second argugment.
--spec wrap(atom(), {'ok', term()} | {'error', atom()}) ->
-    {'error', atom()} | {ok, {atom(), term()}}.
 wrap(_Atom, {error, invalid_argument}=E) ->
     E;
 wrap(Atom, {ok, Value}) ->
@@ -234,7 +217,6 @@ wrap(Atom, {ok, Value}) ->
 
 %% If `String' is enclosed in quotation marks, remove them. Otherwise
 %% return an error.
--spec remove_quotes(string()) -> {error, invalid_argument} | {ok, string()}.
 remove_quotes(String) ->
     case starts_and_ends_with_quotes(String) of
         false ->
@@ -245,7 +227,6 @@ remove_quotes(String) ->
 
 %% @doc Return true if `String' is enclosed in quotation
 %% marks. The enclosed string must also be non-empty.
--spec starts_and_ends_with_quotes(string()) -> boolean().
 starts_and_ends_with_quotes(String) ->
     length(String) > 2 andalso
     hd(String) =:= 34 andalso
@@ -254,7 +235,6 @@ starts_and_ends_with_quotes(String) ->
 %% @doc Attempt to turn a list of grants that use email addresses
 %% into a list of grants that only use canonical ids. Returns an error
 %% if any of the emails cannot be turned into canonical ids.
--spec emails_to_ids(list(), riak_client()) -> {ok, list()} | {error, unresolved_grant_email}.
 emails_to_ids(Grants, RcPid) ->
     {EmailGrants, RestGrants} = lists:partition(fun email_grant/1, Grants),
     Ids = [canonical_for_email(EmailAddress, RcPid) ||
@@ -266,15 +246,12 @@ emails_to_ids(Grants, RcPid) ->
             {ok, RestGrants ++ [{id, ID} || ID <- AllIds]}
     end.
 
--spec email_grant({atom(), term}) -> boolean().
 email_grant({Atom, _Val}) ->
     Atom =:= 'emailAddress'.
 
 %% @doc Turn a list of ok-values or errors into either
 %% an ok of list, or an error. Returns the latter is any
 %% of the values in the input list are an error.
--spec promote_failure(list({ok, A} | {error, term()})) ->
-    {ok, list(A)} | {'error', term()}.
 promote_failure(List) ->
     %% this will reverse the list, but we don't care
     %% about order
@@ -288,9 +265,6 @@ promote_failure(List) ->
 %% @doc Return an error if either argument is an error. Otherwise,
 %% cons the value from the first argument onto the accumulator
 %% in the second.
--spec fail_either({ok, term()} | {error, term()},
-                  {{error, term()} | 'ok', list()}) ->
-    {ok | {error, term()}, list()}.
 fail_either(_Elem, {{error, _Reason}=E, Acc}) ->
     {E, Acc};
 fail_either(E={error, _Reason}, {_OkOrError, Acc}) ->
@@ -301,7 +275,7 @@ fail_either({ok, Val}, {_OkOrError, Acc}) ->
 
 %% @doc Convert an XML document representing an ACL into
 %% an internal representation.
--spec acl_from_xml(string(), string(), riak_client()) -> {ok, #acl_v2{}} |
+-spec acl_from_xml(string(), string(), riak_client()) -> {ok, acl()} |
     {error, 'invalid_argument'} |
     {error, 'unresolved_grant_email'} |
     {error, 'malformed_acl_error'}.
@@ -309,7 +283,7 @@ acl_from_xml(Xml, KeyId, RcPid) ->
     case riak_cs_xml:scan(Xml) of
         {error, malformed_xml} -> {error, malformed_acl_error};
         {ok, ParsedData} ->
-            BareAcl = ?ACL{owner={[], [], KeyId}},
+            BareAcl = ?ACL{owner = #{}},
             process_acl_contents(ParsedData#xmlElement.content, BareAcl, RcPid)
     end.
 
@@ -359,12 +333,12 @@ requested_access(Method, AclRequest) ->
     end.
 
 -spec check_grants(undefined | rcs_user(), binary(), atom(), riak_client()) ->
-    boolean() | {true, string()}.
+          boolean() | {true, string()}.
 check_grants(User, Bucket, RequestedAccess, RcPid) ->
     check_grants(User, Bucket, RequestedAccess, RcPid, undefined).
 
--spec check_grants(undefined | rcs_user(), binary(), atom(), riak_client(), acl()|undefined) ->
-    boolean() | {true, string()}.
+-spec check_grants(undefined | rcs_user(), binary(), atom(), riak_client(), acl() | undefined) ->
+          boolean() | {true, string()}.
 check_grants(undefined, Bucket, RequestedAccess, RcPid, BucketAcl) ->
     riak_cs_acl:anonymous_bucket_access(Bucket, RequestedAccess, RcPid, BucketAcl);
 check_grants(User, Bucket, RequestedAccess, RcPid, BucketAcl) ->
@@ -375,26 +349,13 @@ check_grants(User, Bucket, RequestedAccess, RcPid, BucketAcl) ->
                               BucketAcl).
 
 -spec validate_acl({ok, acl()} | {error, term()}, string()) ->
-    {ok, acl()} | {error, access_denied}.
+          {ok, acl()} | {error, access_denied}.
 validate_acl({ok, Acl=?ACL{owner={_, Id, _}}}, Id) ->
     {ok, Acl};
 validate_acl({ok, _}, _) ->
     {error, access_denied};
 validate_acl({error, _}=Error, _) ->
     Error.
-
-%% @doc Convert an internal representation of an ACL into
-%% erlang terms that can be encoded using `mochijson2:encode'.
--spec acl_to_json_term(acl()) -> term().
-acl_to_json_term(?ACL{owner={DisplayName, CanonicalId, KeyId},
-                      grants=Grants,
-                      creation_time=CreationTime}) ->
-    {acl,
-     [{version, 1},
-      owner_to_json_term(DisplayName, CanonicalId, KeyId),
-      grants_to_json_term(Grants, []),
-      erlang_time_to_json_term(CreationTime)]
-    }.
 
 
 %% ===================================================================
@@ -404,13 +365,12 @@ acl_to_json_term(?ACL{owner={DisplayName, CanonicalId, KeyId},
 %% @doc Update the permissions for a grant in the provided
 %% list of grants if an entry exists with matching grantee
 %% data or add a grant to a list of grants.
--spec add_grant(acl_grant(), [acl_grant()]) -> [acl_grant()].
 add_grant(NewGrant, Grants) ->
-    {NewGrantee, NewPerms} = NewGrant,
-    SplitFun = fun(G) ->
-            {Grantee, _} = G,
-            Grantee =:= NewGrantee
-    end,
+    ?AL_GRANT{grantee = NewGrantee,
+              perms = NewPerms} = NewGrant,
+    SplitFun = fun(?ACL_GRANT{grantee = Grantee}) ->
+                       Grantee =:= NewGrantee
+               end,
     {GranteeGrants, OtherGrants} = lists:partition(SplitFun, Grants),
     case GranteeGrants of
         [] ->
@@ -420,11 +380,12 @@ add_grant(NewGrant, Grants) ->
             %% item list, but use a fold just in case.
             %% The combined list of perms should be small so
             %% using usort should not be too expensive.
-            FoldFun = fun({_, Perms}, Acc) ->
-                    lists:usort(Perms ++ Acc)
-            end,
+            FoldFun = fun(?ACL_GRANT{perms = Perms}, Acc) ->
+                              lists:usort(Perms ++ Acc)
+                      end,
             UpdPerms = lists:foldl(FoldFun, NewPerms, GranteeGrants),
-            [{NewGrantee, UpdPerms} | OtherGrants]
+            [?ACL_GRANT{grantee = NewGrantee,
+                        perms = UpdPerms} | OtherGrants]
     end.
 
 %% @doc Get the list of grants for a canned ACL
@@ -432,39 +393,34 @@ add_grant(NewGrant, Grants) ->
                         acl_owner(),
                         undefined | acl_owner()) -> [acl_grant()].
 canned_acl_grants("public-read", Owner, _) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']},
-     {'AllUsers', ['READ']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']},
+     ?ACL_GRANT{owner = 'AllUsers', perms = ['READ']}];
 canned_acl_grants("public-read-write", Owner, _) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']},
-     {'AllUsers', ['READ', 'WRITE']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']},
+     ?ACL_GRANT{owner = 'AllUsers', perms = ['READ', 'WRITE']}];
 canned_acl_grants("authenticated-read", Owner, _) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']},
-     {'AuthUsers', ['READ']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']},
+     ?ACL_GRANT{owner = 'AuthUsers', perms = ['READ']}];
 canned_acl_grants("bucket-owner-read", Owner, undefined) ->
     canned_acl_grants("private", Owner, undefined);
 canned_acl_grants("bucket-owner-read", Owner, Owner) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']}];
 canned_acl_grants("bucket-owner-read", Owner, BucketOwner) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']},
-     {owner_grant(BucketOwner), ['READ']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']},
+     ?ACL_GRANT{owner = BucketOwner, perms = ['READ']}];
 canned_acl_grants("bucket-owner-full-control", Owner, undefined) ->
     canned_acl_grants("private", Owner, undefined);
 canned_acl_grants("bucket-owner-full-control", Owner, Owner) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']}];
 canned_acl_grants("bucket-owner-full-control", Owner, BucketOwner) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']},
-     {owner_grant(BucketOwner), ['FULL_CONTROL']}];
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']},
+     ?ACL_GRANT{owner = BucketOwner, perms = ['FULL_CONTROL']}];
 canned_acl_grants(_, Owner, _) ->
-    [{owner_grant(Owner), ['FULL_CONTROL']}].
+    [?ACL_GRANT{owner = Owner, perms = ['FULL_CONTROL']}].
 
--spec owner_grant({string(), string(), string()}) -> {string(), string()}.
-owner_grant({Name, CanonicalId, _}) ->
-    {Name, CanonicalId}.
 
 %% @doc Get the canonical id of the user associated with
 %% a given email address.
--spec canonical_for_email(string(), riak_client()) -> {ok, string()} |
-    {error, unresolved_grant_email} .
 canonical_for_email(Email, RcPid) ->
     case riak_cs_user:get_user_by_index(?EMAIL_INDEX,
                                          list_to_binary(Email),
@@ -478,8 +434,6 @@ canonical_for_email(Email, RcPid) ->
 
 %% @doc Get the display name of the user associated with
 %% a given canonical id.
--spec name_for_canonical(string(), riak_client()) -> {ok, string()} |
-    {error, 'invalid_argument'}.
 name_for_canonical(CanonicalId, RcPid) ->
     case riak_cs_user:get_user_by_index(?ID_INDEX,
                                          list_to_binary(CanonicalId),
@@ -491,10 +445,6 @@ name_for_canonical(CanonicalId, RcPid) ->
     end.
 
 %% @doc Process the top-level elements of the
--spec process_acl_contents([riak_cs_xml:xmlElement()], acl(), riak_client()) ->
-    {ok, #acl_v2{}} |
-    {error, invalid_argument} |
-    {error, unresolved_grant_email}.
 process_acl_contents([], Acl, _) ->
     {ok, Acl};
 process_acl_contents([#xmlElement{content=Content,
@@ -502,15 +452,15 @@ process_acl_contents([#xmlElement{content=Content,
                       | RestElements], Acl, RcPid) ->
     ?LOG_DEBUG("Element name: ~p", [ElementName]),
     UpdAclRes =
-                case ElementName of
-        'Owner' ->
-            process_owner(Content, Acl, RcPid);
-        'AccessControlList' ->
-            process_grants(Content, Acl, RcPid);
-        _ ->
-            ?LOG_DEBUG("Encountered unexpected element: ~p", [ElementName]),
-            Acl
-    end,
+        case ElementName of
+            'Owner' ->
+                process_owner(Content, Acl, RcPid);
+            'AccessControlList' ->
+                process_grants(Content, Acl, RcPid);
+            _ ->
+                ?LOG_DEBUG("Encountered unexpected element: ~p", [ElementName]),
+                Acl
+        end,
     case UpdAclRes of
         {ok, UpdAcl} ->
             process_acl_contents(RestElements, UpdAcl, RcPid);
@@ -525,10 +475,11 @@ process_acl_contents([#xmlText{} | RestElements], Acl, RcPid) ->
 
 %% @doc Process an XML element containing acl owner information.
 -spec process_owner([riak_cs_xml:xmlNode()], acl(), riak_client()) -> {ok, #acl_v2{}}.
-process_owner([], Acl=?ACL{owner={[], CanonicalId, KeyId}}, RcPid) ->
+process_owner([], Acl=?ACL{owner = #{display_name := [],
+                                     canonical_id := CanonicalId} = Owner, RcPid) ->
     case name_for_canonical(CanonicalId, RcPid) of
         {ok, DisplayName} ->
-            {ok, Acl?ACL{owner={DisplayName, CanonicalId, KeyId}}};
+            {ok, Acl?ACL{owner = Owner#{display_name => DisplayName}}};
         {error, _}=Error ->
             Error
     end;
@@ -544,17 +495,15 @@ process_owner([#xmlElement{content=[Content],
                 case ElementName of
                     'ID' ->
                         ?LOG_DEBUG("Owner ID value: ~p", [Value]),
-                        {OwnerName, _, OwnerKeyId} = Owner,
-                        {OwnerName, Value, OwnerKeyId};
+                        Owner#{canonical_id => Value};
                     'DisplayName' ->
                         ?LOG_DEBUG("Owner Name content: ~p", [Value]),
-                        {_, OwnerId, OwnerKeyId} = Owner,
-                        {Value, OwnerId, OwnerKeyId};
+                        Owner#{display_name => Value};
                     _ ->
                         ?LOG_DEBUG("Encountered unexpected element: ~p", [ElementName]),
                         Owner
             end,
-            process_owner(RestElements, Acl?ACL{owner=UpdOwner}, RcPid);
+            process_owner(RestElements, Acl?ACL{owner = UpdOwner}, RcPid);
         _ ->
             process_owner(RestElements, Acl, RcPid)
     end;
@@ -563,29 +512,25 @@ process_owner([_ | RestElements], Acl, RcPid) ->
     process_owner(RestElements, Acl, RcPid).
 
 %% @doc Process an XML element containing the grants for the acl.
--spec process_grants([riak_cs_xml:xmlNode()], acl(), riak_client()) ->
-    {ok, #acl_v2{}} |
-    {error, invalid_argument} |
-    {error, unresolved_grant_email}.
 process_grants([], Acl, _) ->
     {ok, Acl};
 process_grants([#xmlElement{content=Content,
                             name=ElementName} |
                 RestElements], Acl, RcPid) ->
     UpdAcl =
-             case ElementName of
-        'Grant' ->
-            Grant = process_grant(Content, {{"", ""}, []}, Acl?ACL.owner, RcPid),
-            case Grant of
-                {error, _} ->
-                    Grant;
-                _ ->
-                    Acl?ACL{grants=add_grant(Grant, Acl?ACL.grants)}
-            end;
-        _ ->
-            ?LOG_DEBUG("Encountered unexpected grants element: ~p", [ElementName]),
-            Acl
-    end,
+        case ElementName of
+            'Grant' ->
+                Grant = process_grant(Content, ?ACL_GRANT{owner = #{}}, Acl?ACL.owner, RcPid),
+                case Grant of
+                    {error, _} ->
+                        Grant;
+                    _ ->
+                        Acl?ACL{grants=add_grant(Grant, Acl?ACL.grants)}
+                end;
+            _ ->
+                ?LOG_DEBUG("Encountered unexpected grants element: ~p", [ElementName]),
+                Acl
+        end,
     case UpdAcl of
         {error, _} -> UpdAcl;
         _ -> process_grants(RestElements, UpdAcl, RcPid)
@@ -596,8 +541,6 @@ process_grants([ #xmlText{} | RestElements], Acl, RcPid) ->
     process_grants(RestElements, Acl, RcPid).
 
 %% @doc Process an XML element containing the grants for the acl.
--spec process_grant([riak_cs_xml:xmlElement()], acl_grant(), acl_owner(), riak_client()) ->
-    acl_grant() | {error, atom()}.
 process_grant([], Grant, _, _) ->
     Grant;
 process_grant([#xmlElement{content=Content,
@@ -606,15 +549,15 @@ process_grant([#xmlElement{content=Content,
     ?LOG_DEBUG("ElementName: ~p", [ElementName]),
     ?LOG_DEBUG("Content: ~p", [Content]),
     UpdGrant =
-               case ElementName of
-        'Grantee' ->
-            process_grantee(Content, Grant, AclOwner, RcPid);
-        'Permission' ->
-            process_permission(Content, Grant);
-        _ ->
-            logger:warning("Encountered unexpected grant element: ~p", [ElementName]),
-            Grant
-    end,
+        case ElementName of
+            'Grantee' ->
+                process_grantee(Content, Grant, AclOwner, RcPid);
+            'Permission' ->
+                process_permission(Content, Grant);
+            _ ->
+                logger:warning("Encountered unexpected grant element: ~p", [ElementName]),
+                Grant
+        end,
     case UpdGrant of
         {error, _}=Error ->
             Error;
@@ -628,18 +571,21 @@ process_grant([#xmlText{}|RestElements], Grant, Owner, RcPid) ->
 
 %% @doc Process an XML element containing information about
 %% an ACL permission grantee.
--spec process_grantee([riak_cs_xml:xmlElement()], acl_grant(), acl_owner(), riak_client()) ->
-    acl_grant() |
-    {error, invalid_argument} |
-    {error, unresolved_grant_email}.
-process_grantee([], {{[], CanonicalId}, _Perms}, {DisplayName, CanonicalId, _}, _) ->
-    {{DisplayName, CanonicalId}, _Perms};
-process_grantee([], {{[], CanonicalId}, _Perms}, _, RcPid) ->
+process_grantee([], ?ACL_GRANT{grantee = #{display_name := [],
+                                           canonical_id := CanonicalId} = O
+                              } = G,
+                #{display_name := DisplayName,
+                  canonical_id := CanonicalId}, _) ->
+    G?ACL_GRANT{grantee = O#{display_name => DisplayName}};
+process_grantee([], ?ACL_GRANT{grantee = #{display_name := [],
+                                           canonical_id := CanonicalId} = O,
+                              } = G,
+                _, RcPid) ->
     %% Lookup the display name for the user with the
     %% canonical id of `CanonicalId'.
     case name_for_canonical(CanonicalId, RcPid) of
         {ok, DisplayName} ->
-            {{DisplayName, CanonicalId}, _Perms};
+            G?ACL_GRANT{grantee = O#{display = DisplayName}};
         {error, _}=Error ->
             Error
     end;
@@ -647,15 +593,19 @@ process_grantee([], Grant, _, _) ->
     Grant;
 process_grantee([#xmlElement{content=[Content],
                              name=ElementName} |
-                 RestElements], Grant, AclOwner, RcPid) ->
+                 RestElements], ?ACL_GRANT{grantee = Grantee} = G, AclOwner, RcPid) ->
     Value = Content#xmlText.value,
     case ElementName of
         'ID' ->
             ?LOG_DEBUG("ID value: ~p", [Value]),
-            {{Name, _}, Perms} = Grant,
-            UpdGrant = {{Name, Value}, Perms};
+            UpdGrant = G?ACL_GRANT{grantee = Grantee#{canonical_id => Value}};
         'EmailAddress' ->
             ?LOG_DEBUG("Email value: ~p", [Value]),
+
+
+            
+            
+            
             UpdGrant =
                 case canonical_for_email(Value, RcPid) of
                     {ok, Id} ->
@@ -704,43 +654,6 @@ process_permission([Content], Grant) ->
     {Grantee, UpdPerms}.
 
 
-%% @doc Convert an information from an ACL into erlang
-%% terms that can be encoded using `mochijson2:encode'.
-erlang_time_to_json_term({MegaSecs, Secs, MicroSecs}) ->
-    {creation_time,
-     [{mega_seconds, MegaSecs},
-      {seconds, Secs},
-      {micro_seconds, MicroSecs}]
-    }.
-
-%% @doc Convert grantee information from an ACL into erlang
-%% terms that can be encoded using `mochijson2:encode'.
-grantee_to_json_term({Group, Perms}) when is_atom(Group) ->
-    [{group, Group},
-     {permissions, Perms}];
-grantee_to_json_term({{DisplayName, CanonicalId}, Perms}) ->
-    [{display_name, DisplayName},
-     {canonical_id, CanonicalId},
-     {permissions, Perms}].
-
-%% @doc Convert owner information from an ACL into erlang
-%% terms that can be encoded using `mochijson2:encode'.
-grants_to_json_term([], GrantTerms) ->
-    {grants, GrantTerms};
-grants_to_json_term([HeadGrant | RestGrants], GrantTerms) ->
-    grants_to_json_term(RestGrants,
-                        [grantee_to_json_term(HeadGrant) | GrantTerms]).
-
-%% @doc Convert owner information from an ACL into erlang
-%% terms that can be encoded using `mochijson2:encode'.
-owner_to_json_term(DisplayName, CanonicalId, KeyId) ->
-    {owner,
-     [{display_name, DisplayName},
-      {canonical_id, CanonicalId},
-      {key_id, KeyId}]
-    }.
-
-
 
 %% ===================================================================
 %% Eunit tests
@@ -758,146 +671,6 @@ acl(DisplayName, CanonicalId, KeyId, Grants, CreationTime) ->
          grants=Grants,
          creation_time=CreationTime}.
 
-
-%% @doc Convert a set of JSON terms representing an ACL into
-%% an internal representation.
--spec acl_from_json(term()) -> acl().
-acl_from_json({struct, Json}) ->
-    process_acl_contents(Json, ?ACL{});
-acl_from_json(Json) ->
-    process_acl_contents(Json, ?ACL{}).
-
-%% @doc Process the top-level elements of the
--spec process_acl_contents([term()], acl()) -> acl().
-process_acl_contents([], Acl) ->
-    Acl;
-process_acl_contents([{Name, Value} | RestObjects], Acl) ->
-    ?LOG_DEBUG("Object name: ~p", [Name]),
-    case Name of
-        <<"owner">> ->
-            {struct, OwnerData} = Value,
-            UpdAcl = process_owner(OwnerData, Acl);
-        <<"grants">> ->
-            UpdAcl = process_grants(Value, Acl);
-        <<"creation_time">> ->
-            {struct, TimeData} = Value,
-            CreationTime = process_creation_time(TimeData, {1,1,1}),
-            UpdAcl = Acl?ACL{creation_time=CreationTime};
-        _ ->
-            UpdAcl = Acl
-    end,
-    process_acl_contents(RestObjects, UpdAcl).
-
-%% @doc Process an JSON element containing acl owner information.
--spec process_owner([term()], acl()) -> acl().
-process_owner([], Acl) ->
-    Acl;
-process_owner([{Name, Value} | RestObjects], Acl) ->
-    Owner = Acl?ACL.owner,
-    case Name of
-        <<"key_id">> ->
-            ?LOG_DEBUG("Owner Key ID value: ~p", [Value]),
-            {OwnerName, OwnerCID, _} = Owner,
-            UpdOwner = {OwnerName, OwnerCID, binary_to_list(Value)};
-        <<"canonical_id">> ->
-            ?LOG_DEBUG("Owner ID value: ~p", [Value]),
-            {OwnerName, _, OwnerId} = Owner,
-            UpdOwner = {OwnerName, binary_to_list(Value), OwnerId};
-        <<"display_name">> ->
-            ?LOG_DEBUG("Owner Name content: ~p", [Value]),
-            {_, OwnerCID, OwnerId} = Owner,
-            UpdOwner = {binary_to_list(Value), OwnerCID, OwnerId};
-        _ ->
-            ?LOG_DEBUG("Encountered unexpected element: ~p", [Name]),
-            UpdOwner = Owner
-    end,
-    process_owner(RestObjects, Acl?ACL{owner=UpdOwner}).
-
-%% @doc Process an JSON element containing the grants for the acl.
--spec process_grants([term()], acl()) -> acl().
-process_grants([], Acl) ->
-    Acl;
-process_grants([{_, Value} | RestObjects], Acl) ->
-    Grant = process_grant(Value, {{"", ""}, []}),
-    UpdAcl = Acl?ACL{grants=[Grant | Acl?ACL.grants]},
-    process_grants(RestObjects, UpdAcl).
-
-%% @doc Process an JSON element containing information about
-%% an ACL permission grants.
--spec process_grant([term()], acl_grant()) -> acl_grant().
-process_grant([], Grant) ->
-    Grant;
-process_grant([{Name, Value} | RestObjects], Grant) ->
-    case Name of
-        <<"canonical_id">> ->
-            ?LOG_DEBUG("ID value: ~p", [Value]),
-            {{DispName, _}, Perms} = Grant,
-            UpdGrant = {{DispName, binary_to_list(Value)}, Perms};
-        <<"display_name">> ->
-            ?LOG_DEBUG("Name value: ~p", [Value]),
-            {{_, Id}, Perms} = Grant,
-            UpdGrant = {{binary_to_list(Value), Id}, Perms};
-        <<"group">> ->
-            ?LOG_DEBUG("Group value: ~p", [Value]),
-            {_, Perms} = Grant,
-            UpdGrant = {list_to_atom(
-                          binary_to_list(Value)), Perms};
-        <<"permissions">> ->
-            {Grantee, _} = Grant,
-            Perms = process_permissions(Value),
-            ?LOG_DEBUG("Perms value: ~p", [Value]),
-            UpdGrant = {Grantee, Perms};
-        _ ->
-            UpdGrant = Grant
-    end,
-    process_grant(RestObjects, UpdGrant).
-
-%% @doc Process a list of JSON elements containing
-%% ACL permissions.
--spec process_permissions([binary()]) -> acl_perms().
-process_permissions(Perms) ->
-    lists:usort(
-      lists:filter(fun(X) -> X /= undefined end,
-                   [binary_perm_to_atom(Perm) || Perm <- Perms])).
-
-%% @doc Convert a binary permission type to a
-%% corresponding atom or return `undefined' if
-%% the permission is invalid.
--spec binary_perm_to_atom(binary()) -> atom().
-binary_perm_to_atom(Perm) ->
-    case Perm of
-        <<"FULL_CONTROL">> ->
-            'FULL_CONTROL';
-        <<"READ">> ->
-            'READ';
-        <<"READ_ACP">> ->
-            'READ_ACP';
-        <<"WRITE">> ->
-            'WRITE';
-        <<"WRITE_ACP">> ->
-            'WRITE_ACP';
-        _ ->
-            undefined
-    end.
-
-%% @doc Process the JSON element containing creation time
-%% data for an ACL.
--spec process_creation_time([term()], erlang:timestamp()) -> erlang:timestamp().
-process_creation_time([], CreationTime) ->
-    CreationTime;
-process_creation_time([{Name, Value} | RestObjects], CreationTime) ->
-    case Name of
-        <<"mega_seconds">> ->
-            {_, Secs, MicroSecs} = CreationTime,
-            UpdCreationTime = {Value, Secs, MicroSecs};
-        <<"seconds">> ->
-            {MegaSecs, _, MicroSecs} = CreationTime,
-            UpdCreationTime = {MegaSecs, Value, MicroSecs};
-        <<"micro_seconds">> ->
-            {MegaSecs, Secs, _} = CreationTime,
-            UpdCreationTime = {MegaSecs, Secs, Value}
-    end,
-    process_creation_time(RestObjects, UpdCreationTime).
 
 %% @TODO Use eqc to do some more interesting case explorations.
 
@@ -1016,29 +789,24 @@ comment_space_test() ->
 acl_from_json_test() ->
     CreationTime = erlang:timestamp(),
     {AclMegaSecs, AclSecs, AclMicroSecs} = CreationTime,
-    JsonTerm = [{<<"version">>,1},
-                {<<"owner">>,
-                 {struct,
-                  [{<<"display_name">>,<<"tester1">>},
-                   {<<"canonical_id">>,<<"TESTID1">>},
-                   {<<"key_id">>,<<"TESTKEYID1">>}]}},
-                {<<"grants">>,
-                 [{struct,
-                   [{<<"group">>,<<"AllUsers">>},
-                    {<<"permissions">>,[<<"WRITE_ACP">>]}]},
-                  {struct,
-                   [{<<"display_name">>,<<"tester2">>},
-                    {<<"canonical_id">>,<<"TESTID2">>},
-                    {<<"permissions">>,[<<"WRITE">>]}]},
-                  {struct,
-                   [{<<"display_name">>,<<"tester1">>},
-                    {<<"canonical_id">>,<<"TESTID1">>},
-                    {<<"permissions">>,[<<"READ">>]}]}]},
-                {<<"creation_time">>,
-                 {struct,
-                  [{<<"mega_seconds">>, AclMegaSecs},
-                   {<<"seconds">>, AclSecs},
-                   {<<"micro_seconds">>, AclMicroSecs}]}}],
+    JsonTerm = [{owner,
+                 [{display_name,tester1},
+                  {canonical_id,TESTID1},
+                  {key_id,TESTKEYID1}]},
+                {grants,
+                 [[{group,AllUsers},
+                   {permissions,[WRITE_ACP]}],
+                  [{display_name,tester2},
+                   {canonical_id,TESTID2},
+                   {permissions,[WRITE]}],
+                  [{display_name,tester1},
+                   {canonical_id,TESTID1},
+                   {permissions,[READ]}]],
+                 {creation_time,
+                  [{mega_seconds, AclMegaSecs},
+                   {seconds, AclSecs},
+                   {micro_seconds, AclMicroSecs}]}}
+               ],
     Acl = acl_from_json(JsonTerm),
     ExpectedAcl = acl("tester1",
                       "TESTID1",
@@ -1057,7 +825,7 @@ acl_to_json_term_test() ->
               [{{"tester1", "TESTID1"}, ['READ']},
                {{"tester2", "TESTID2"}, ['WRITE']}],
               CreationTime),
-    JsonTerm = acl_to_json_term(Acl),
+    JsonTerm = jsx:(Acl),
     {AclMegaSecs, AclSecs, AclMicroSecs} = CreationTime,
     ExpectedTerm = {<<"acl">>,
                     {struct,

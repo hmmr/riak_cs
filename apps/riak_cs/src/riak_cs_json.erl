@@ -81,7 +81,9 @@ to_json(?KEYSTONE_S3_AUTH_REQ{}=Req) ->
                       {<<"token">>, Req?KEYSTONE_S3_AUTH_REQ.token}]},
     iolist_to_binary(mochijson2:encode({struct, [{<<"credentials">>, Inner}]}));
 to_json(?RCS_USER{} = A) ->
-    jason:encode(A, [{records, [{rcs_user_v2, record_info(fields, rcs_user_v2)}]}]);
+    jason:encode(A, [{records, [{rcs_user_v2, record_info(fields, rcs_user_v2)},
+                                {moss_bucket_v1, record_info(fields, moss_bucket_v1)},
+                                {acl_v3, record_info(fields, acl_v3)}]}]);
 to_json({users, AA}) ->
     jason:encode(AA, [{records, [{rcs_user_v2, record_info(fields, rcs_user_v2)}]}]);
 to_json(?S3_ROLE{} = A) ->

@@ -265,6 +265,7 @@ object_access(BucketObj, ObjAcl, 'WRITE', CanonicalId, RcPid, undefined) ->
             false
     end;
 object_access(_BucketObj, _ObjAcl, 'WRITE', CanonicalId, RcPid, BucketAcl) ->
+    ?LOG_DEBUG("ObjAcl: ~p; CanonicalId: ~p", [_ObjAcl, CanonicalId]),
     %% Fetch the bucket's ACL
     IsBucketOwner = is_owner(BucketAcl, CanonicalId),
     HasBucketPerm = has_permission(acl_grants(BucketAcl),
@@ -393,7 +394,7 @@ has_permission(Grants, RequestedAccess, CanonicalId) ->
 
 %% @doc Determine if a user is the owner of a system entity.
 -spec is_owner(acl(), string()) -> boolean().
-is_owner(?ACL{owner={_, CanonicalId, _}}, CanonicalId) ->
+is_owner(?ACL{owner ={_, CanonicalId, _}}, CanonicalId) ->
     true;
 is_owner(?ACL{}, _) ->
     false;
