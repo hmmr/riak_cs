@@ -132,28 +132,16 @@ format_element(Value) ->
 
 %% @doc Convert an internal representation of an ACL into XML.
 -spec acl_to_xml(acl()) -> binary().
-acl_to_xml(Acl) ->
-    Content = [make_internal_node('Owner', owner_content(acl_owner(Acl))),
-               make_internal_node('AccessControlList', make_grants(acl_grants(Acl)))],
+acl_to_xml(?ACL{owner = Owner, grants = Grants}) ->
+    Content = [make_internal_node('Owner', owner_content(Owner)),
+               make_internal_node('AccessControlList', make_grants(Grants))],
     XmlDoc = [make_internal_node('AccessControlPolicy', Content)],
     export_xml(XmlDoc).
 
--spec acl_grants(?ACL{} | #acl_v1{}) -> [acl_grant()].
-acl_grants(?ACL{grants=Grants}) ->
-    Grants;
-acl_grants(#acl_v1{grants=Grants}) ->
-    Grants.
-
--spec acl_owner(?ACL{} | #acl_v1{}) -> {string(), string()}.
-acl_owner(?ACL{owner=Owner}) ->
-    {OwnerName, OwnerId, _} = Owner,
-    {OwnerName, OwnerId};
-acl_owner(#acl_v1{owner=Owner}) ->
-    Owner.
-
-owner_content({OwnerName, OwnerId}) ->
-    [make_external_node('ID', OwnerId),
-     make_external_node('DisplayName', OwnerName)].
+owner_content(#{display_name := Name,
+                canonical_id := Id}) ->
+    [make_external_node('ID', Id),
+     make_external_node('DisplayName', Name)].
 
 list_objects_response_to_simple_form(?LORESP{contents = Contents,
                                              common_prefixes = CommonPrefixes,
@@ -268,10 +256,13 @@ make_grants(Grantees) ->
 %% @doc Assemble the xml for the set of grantees for an acl.
 make_grants([], Acc) ->
     lists:flatten(Acc);
-make_grants([{{GranteeName, GranteeId}, Perms} | RestGrantees], Acc) ->
+make_grants([?ACL_GRANT{grantee = #{display_name := GranteeName,
+                                    canonical_id := GranteeId},
+                        perms = Perms} | RestGrantees], Acc) ->
     Grantee = [make_grant(GranteeName, GranteeId, Perm) || Perm <- Perms],
     make_grants(RestGrantees, [Grantee | Acc]);
-make_grants([{Group, Perms} | RestGrantees], Acc) ->
+make_grants([?ACL_GRANT{grantee = Group,
+                        perms = Perms} | RestGrantees], Acc) ->
     Grantee = [make_grant(Group, Perm) || Perm <- Perms],
     make_grants(RestGrantees, [Grantee | Acc]).
 

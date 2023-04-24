@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -95,7 +96,8 @@ get_pbc() ->
 -spec create_bucket(maps:map()) -> ok | {error, term()}.
 create_bucket(#{bucket := Bucket,
                 requester := OwnerId,
-                acl := Acl} = FF) ->
+                acl := Acl_} = FF) ->
+    Acl = riak_cs_acl:exprec_detailed(Acl_),
     BagId = maps:get(bag, FF, undefined),
     case riak_connection() of
         {ok, Pbc} ->
@@ -116,6 +118,7 @@ create_bucket(#{bucket := Bucket,
         Error ->
             Error
     end.
+
 
 bucket_record(Name, Operation) ->
     Action = case Operation of

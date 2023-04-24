@@ -397,8 +397,7 @@ versioning_json_to_struct({struct, Doc}) ->
 
 %% @doc Generate a JSON document to use for a bucket
 %% ACL request.
--spec bucket_acl_json(acl(), string()) -> string().
-bucket_acl_json(ACL, KeyId)  ->
+bucket_acl_json(ACL, KeyId) ->
     jason:encode([{requester, KeyId},
                   {acl, ACL}],
                  [{records, [{acl_v3, record_info(fields, acl_v3)}]}]).
@@ -573,15 +572,15 @@ bucket_fun(delete, Bucket, _BagId, _ACL, KeyId, AdminCreds) ->
 %% creation request.
 -spec bucket_json(binary(), bag_id(), acl(), string()) -> string().
 bucket_json(Bucket, BagId, ACL, KeyId)  ->
-    logger:debug("ACL: ~p", [ACL]),
+    ?LOG_DEBUG("ACL: ~p", [ACL]),
     BagElement = case BagId of
                      undefined -> [];
                      _ -> [{bag, BagId}]
                  end,
     jason:encode([{bucket, Bucket},
                   {requester, KeyId},
-                  ACL] ++ BagElement, [{records, [{moss_bucket_v1, record_info(fields, moss_bucket_v1)},
-                                                  {acl_v3, record_info(fields, acl_v3)}]}]).
+                  {acl, ACL}] ++ BagElement, [{records, [{acl_v3, record_info(fields, acl_v3)},
+                                                         {acl_grant_v2, record_info(fields, acl_grant_v2)}]}]).
 
 %% @doc Check for and resolve any conflict between
 %% a bucket record from a user record sibling and

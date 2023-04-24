@@ -882,12 +882,12 @@ object_access_authorize_helper(AccessType, Deletable, SkipAcl,
 
 -spec check_object_authorization(access(), boolean(), undefined|acl(), policy(),
                                  undefined|string(), atom(), riak_client(), riakc_obj:riakc_obj()) ->
-                                        {ok, actor_is_owner_and_allowed_policy |
-                                         {actor_is_not_owner_but_allowed_policy, string()} |
-                                         just_allowed_by_policy} |
-                                        {error, actor_is_owner_but_denied_policy |
-                                         {actor_is_not_owner_and_denied_policy, string()} |
-                                         access_denied}.
+          {ok, actor_is_owner_and_allowed_policy |
+           {actor_is_not_owner_but_allowed_policy, string()} |
+           just_allowed_by_policy} |
+          {error, actor_is_owner_but_denied_policy |
+           {actor_is_not_owner_and_denied_policy, string()} |
+           access_denied}.
 check_object_authorization(Access, SkipAcl, ObjectAcl, Policy,
                            CanonicalId, PolicyMod,
                            RcPid, BucketObj) ->
@@ -939,7 +939,7 @@ requested_access_helper(object_acl, Method) ->
     riak_cs_acl_utils:requested_access(Method, true).
 
 -spec extract_object_acl(notfound | lfs_manifest()) ->
-                                undefined | acl().
+          undefined | acl().
 extract_object_acl(Manifest) ->
     riak_cs_manifest:object_acl(Manifest).
 

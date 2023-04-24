@@ -97,10 +97,6 @@ content_types_accepted(RD, Ctx) ->
           {true | {halt, pos_integer()},
            #wm_reqdata{}, #stanchion_context{}}.
 accept_body(RD, Ctx) ->
-    %% @TODO POST is not the best method to use to
-    %% handle creation of named buckets. Change the
-    %% interface so that a PUT to /buckets/<bucketname>
-    %% is the method for creating a specific bucket.
     Body = wrq:req_body(RD),
     case stanchion_server:create_bucket(
            jsx:decode(Body, [{labels, atom}])) of

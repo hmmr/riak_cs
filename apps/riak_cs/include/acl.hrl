@@ -46,10 +46,10 @@
 
 -type acl_owner() :: maps:map().
 
--type acl_grantee_v2() :: maps:map().
+-type acl_grantee_v2() :: maps:map() | group_grant().
 
 -record(acl_grant_v2, {grantee :: acl_grantee_v2(),
-                       permissions :: acl_perms()
+                       perms :: acl_perms()
                       }).
 -type acl_grant() :: #acl_grant_v2{}.
 -define(ACL_GRANT, #acl_grant_v2).

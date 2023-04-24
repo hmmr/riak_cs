@@ -86,6 +86,7 @@
         , moss_bucket_v1
         , acl_v1
         , acl_v3
+        , acl_grant_v2
         , lfs_manifest_v2
         , lfs_manifest_v3
         , part_manifest_v1

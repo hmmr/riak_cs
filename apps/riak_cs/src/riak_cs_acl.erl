@@ -46,7 +46,8 @@
          bucket_acl_from_contents/2,
          object_access/5,
          object_access/6,
-         owner_id/2
+         owner_id/2,
+         exprec_detailed/1
         ]).
 
 -define(ACL_UNDEF, {error, acl_undefined}).
@@ -201,8 +202,6 @@ bucket_acl(BucketObj) ->
 %% We attempt resolution, but intentionally do not write back a resolved
 %% value. Instead the fact that the bucket has siblings is logged, but the
 %% condition should be rare so we avoid updating the value at this time.
--spec bucket_acl_from_contents(binary(), riakc_obj:contents()) ->
-                                      bucket_acl_result().
 bucket_acl_from_contents(_, [{MD, _}]) ->
     MetaVals = dict:fetch(?MD_USERMETA, MD),
     acl_from_meta(MetaVals);
@@ -213,22 +212,19 @@ bucket_acl_from_contents(Bucket, Contents) ->
     riak_cs_bucket:maybe_log_bucket_owner_error(Bucket, UniqueVals),
     resolve_bucket_metadata(UserMetas, UniqueVals).
 
--spec resolve_bucket_metadata(list(riakc_obj:metadata()),
-                               list(riakc_obj:value())) -> bucket_acl_result().
 resolve_bucket_metadata(Metas, [_Val]) ->
+    ?LOG_DEBUG("ZZZZZZZZ Acls: ~p", [Metas]),
     Acls = [acl_from_meta(M) || M <- Metas],
+    ?LOG_DEBUG("ZZZZZZZZ Acls: ~p", [Acls]),
     resolve_bucket_acls(Acls);
 resolve_bucket_metadata(_Metas, _) ->
     {error, multiple_bucket_owners}.
 
--spec resolve_bucket_acls(list(acl_from_meta_result())) -> acl_from_meta_result().
 resolve_bucket_acls([Acl]) ->
     Acl;
 resolve_bucket_acls(Acls) ->
     lists:foldl(fun newer_acl/2, ?ACL_UNDEF, Acls).
 
--spec newer_acl(acl_from_meta_result(), acl_from_meta_result()) ->
-                       acl_from_meta_result().
 newer_acl(Acl1, ?ACL_UNDEF) ->
     Acl1;
 newer_acl({ok, Acl1}, {ok, Acl2})
@@ -305,10 +301,9 @@ object_access(_BucketObj, ObjAcl, RequestedAccess, CanonicalId, RcPid, _) ->
 
 %% @doc Get the canonical id of the owner of an entity.
 -spec owner_id(acl(), riak_client()) -> string().
-owner_id(?ACL{owner=Owner}, _) ->
-    {_, _, OwnerId} = Owner,
-    OwnerId;
-owner_id(#acl_v1{owner=OwnerData}, RcPid) ->
+owner_id(?ACL{owner = #{key_id := OwnerKeyId}}, _) ->
+    OwnerKeyId;
+owner_id(#acl_v1{owner = OwnerData}, RcPid) ->
     {Name, CanonicalId} = OwnerData,
     case riak_cs_user:get_user_by_index(?ID_INDEX,
                                         list_to_binary(CanonicalId),
@@ -320,6 +315,22 @@ owner_id(#acl_v1{owner=OwnerData}, RcPid) ->
             []
     end.
 
+exprec_detailed(Map) ->
+    Acl0 = ?ACL{grants = GG0} = exprec:frommap_acl_v3(Map),
+    GG = [exprec_grant(G) || G <- GG0],
+    Acl0?ACL{grants = GG}.
+exprec_grant(Map) ->
+    G0 = ?ACL_GRANT{perms = Perms0,
+                    grantee = Grantee0} = exprec:frommap_acl_grant_v2(Map),
+    G0?ACL_GRANT{perms = [binary_to_existing_atom(P, latin1) || P <- Perms0],
+                 grantee = case Grantee0 of
+                               #{} ->
+                                   Grantee0;
+                               GroupGrantee ->
+                                   binary_to_existing_atom(GroupGrantee, latin1)
+                           end
+                }.
+
 %% ===================================================================
 %% Internal functions
 %% ===================================================================
@@ -327,11 +338,10 @@ owner_id(#acl_v1{owner=OwnerData}, RcPid) ->
 %% @doc Find the ACL in a list of metadata values and
 %% convert it to an erlang term representation. Return
 %% `undefined' if an ACL is not found.
--spec acl_from_meta([{string(), term()}]) -> acl_from_meta_result().
 acl_from_meta([]) ->
     ?ACL_UNDEF;
 acl_from_meta([{?MD_ACL, Acl} | _]) ->
-    {ok, binary_to_term(Acl)};
+    {ok, Acl};
 acl_from_meta([_ | RestMD]) ->
     acl_from_meta(RestMD).
 
@@ -394,12 +404,14 @@ has_permission(Grants, RequestedAccess, CanonicalId) ->
 
 %% @doc Determine if a user is the owner of a system entity.
 -spec is_owner(acl(), string()) -> boolean().
-is_owner(?ACL{owner ={_, CanonicalId, _}}, CanonicalId) ->
+is_owner(?ACL{owner = #{canonical_id := CanonicalId}}, CanonicalId) ->
     true;
 is_owner(?ACL{}, _) ->
     false;
 is_owner(#acl_v1{owner={_, CanonicalId}}, CanonicalId) ->
     true;
+%% is_owner(#acl_v2{owner={_, CanonicalId, _}}, CanonicalId) ->
+%%     true;
 is_owner(#acl_v1{}, _) ->
     false.
 
