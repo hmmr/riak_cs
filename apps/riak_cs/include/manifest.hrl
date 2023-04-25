@@ -278,7 +278,7 @@
 
 -record(multipart_manifest_v1, {
     upload_id :: binary(),
-    owner :: acl_owner3(),
+    owner :: acl_owner(),
 
     %% since we don't have any point of strong
     %% consistency (other than stanchion), we

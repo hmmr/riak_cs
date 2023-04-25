@@ -195,6 +195,7 @@ reqdata_to_access(RD, Target, ID) ->
 
 -spec policy_from_json(JSON::binary()) -> {ok, amz_policy()} | {error, term()}.
 policy_from_json(JSON) ->
+    ?LOG_DEBUG("Policy JSON ~p", [JSON]),
     %% TODO: stop using exception and start some monadic validation and parsing.
     case catch(mochijson2:decode(JSON)) of
         {struct, Pairs} ->
@@ -250,7 +251,7 @@ supported_bucket_action() -> ?SUPPORTED_BUCKET_ACTION.
 %% @doc put required atoms into atom table
 %% to make policy json parser safer by using erlang:binary_to_existing_atom/2.
 -spec log_supported_actions() -> ok.
-log_supported_actions()->
+log_supported_actions() ->
     logger:info("supported object actions: ~p",
                 [lists:map(fun atom_to_list/1, supported_object_action())]),
     logger:info("supported bucket actions: ~p",
@@ -292,7 +293,7 @@ bucket_policy(BucketObj) ->
 %% value. Instead the fact that the bucket has siblings is logged, but the
 %% condition should be rare so we avoid updating the value at this time.
 -spec bucket_policy_from_contents(binary(), riakc_obj:contents()) ->
-                                         bucket_policy_result().
+          bucket_policy_result().
 bucket_policy_from_contents(_, [{MD, _}]) ->
     MetaVals = dict:fetch(?MD_USERMETA, MD),
     policy_from_meta(MetaVals);
@@ -300,11 +301,12 @@ bucket_policy_from_contents(Bucket, Contents) ->
     {Metas, Vals} = lists:unzip(Contents),
     UniqueVals = lists:usort(Vals),
     UserMetas = [dict:fetch(?MD_USERMETA, MD) || MD <- Metas],
+    ?LOG_DEBUG("UserMetas ~p", [UserMetas]),
     riak_cs_bucket:maybe_log_bucket_owner_error(Bucket, UniqueVals),
     resolve_bucket_metadata(UserMetas, UniqueVals).
 
 -spec resolve_bucket_metadata(list(riakc_obj:metadata()),
-                               list(riakc_obj:value())) -> bucket_policy_result().
+                              list(riakc_obj:value())) -> bucket_policy_result().
 resolve_bucket_metadata(Metas, [_Val]) ->
     Policies = [policy_from_meta(M) || M <- Metas],
     resolve_bucket_policies(Policies);

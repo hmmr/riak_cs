@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -45,6 +45,7 @@
 
 -include("riak_cs.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 
 -spec stats_prefix() -> bucket_acl.
@@ -70,7 +71,7 @@ content_types_provided(RD, Ctx) ->
     {[{"application/xml", to_xml}], RD, Ctx}.
 
 -spec content_types_accepted(#wm_reqdata{}, #rcs_s3_context{}) ->
-                                    {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
+          {[{string(), atom()}], #wm_reqdata{}, #rcs_s3_context{}}.
 content_types_accepted(RD, Ctx) ->
     case wrq:get_req_header("content-type", RD) of
         undefined ->
@@ -86,7 +87,7 @@ authorize(RD, Ctx) ->
 
 
 -spec to_xml(#wm_reqdata{}, #rcs_s3_context{}) ->
-                    {binary() | {'halt', non_neg_integer()}, #wm_reqdata{}, #rcs_s3_context{}}.
+          {binary() | {'halt', non_neg_integer()}, #wm_reqdata{}, #rcs_s3_context{}}.
 to_xml(RD, Ctx=#rcs_s3_context{user=User,
                                bucket=Bucket,
                                riak_client=RcPid}) ->
@@ -121,14 +122,13 @@ accept_body(RD, Ctx=#rcs_s3_context{user=User,
             [] ->
                 {ok, AclFromHeadersOrDefault};
             _ ->
-                riak_cs_acl_utils:validate_acl(
-                  riak_cs_acl_utils:acl_from_xml(Body,
-                                                 User?RCS_USER.key_id,
-                                                 RcPid),
-                  User?RCS_USER.canonical_id)
+                RawAcl = riak_cs_acl_utils:acl_from_xml(
+                           Body, User?RCS_USER.key_id, RcPid),
+                riak_cs_acl_utils:validate_acl(RawAcl, User?RCS_USER.canonical_id)
         end,
     case AclRes of
         {ok, ACL} ->
+            ?LOG_DEBUG("ACL ~p", [ACL]),
             case riak_cs_bucket:set_bucket_acl(User,
                                                UserObj,
                                                Bucket,

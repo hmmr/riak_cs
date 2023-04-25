@@ -84,7 +84,7 @@ calc_multipart_2i_dict(Ms, Bucket) when is_list(Ms) ->
 
 
 -spec abort_multipart_upload(binary(), binary(), binary(),
-                             binary(), acl_owner3(), nopid | pid()) ->
+                             binary(), acl_owner(), nopid | pid()) ->
           ok | {error, term()}.
 abort_multipart_upload(Bucket, Key, ObjVsn, UploadId, Caller, RcPidUnW) ->
     do_part_common(abort, Bucket, Key, ObjVsn, UploadId, Caller, [], RcPidUnW).
@@ -123,7 +123,7 @@ clean_multipart_unused_parts(?MANIFEST{bkey = {Bucket, Key},
 
 
 -spec complete_multipart_upload(binary(), binary(), binary(),
-                                binary(), [{integer(), binary()}], acl_owner3(), nopid | pid()) ->
+                                binary(), [{integer(), binary()}], acl_owner(), nopid | pid()) ->
           {ok, lfs_manifest()} | {error, atom()}.
 complete_multipart_upload(Bucket, Key, Vsn, UploadId, PartETags, Caller, RcPidUnW) ->
     Extra = {PartETags},
@@ -132,17 +132,17 @@ complete_multipart_upload(Bucket, Key, Vsn, UploadId, PartETags, Caller, RcPidUn
 
 
 -spec initiate_multipart_upload(binary(), binary(), binary(),
-                                binary(), acl_owner3(), proplists:proplist(), nopid | pid()) ->
+                                binary(), acl_owner(), proplists:proplist(), nopid | pid()) ->
           {ok, binary()} | {error, term()}.
-initiate_multipart_upload(Bucket, Key, Vsn, ContentType, {_,_,_} = Owner,
+initiate_multipart_upload(Bucket, Key, Vsn, ContentType, #{} = Owner,
                           Opts, RcPidUnW) ->
     write_new_manifest(new_manifest(Bucket, Key, Vsn, ContentType, Owner, Opts),
                        Opts, RcPidUnW).
 
 
--spec list_multipart_uploads(binary(), acl_owner3(), proplists:proplist(), nopid | pid()) ->
+-spec list_multipart_uploads(binary(), acl_owner(), proplists:proplist(), nopid | pid()) ->
           {ok, {[multipart_descr()], [ordsets:ordset()]}} | {error, term()}.
-list_multipart_uploads(Bucket, {_Display, _Canon, CallerKeyId} = Caller,
+list_multipart_uploads(Bucket, #{key_id := CallerKeyId} = Caller,
                        Opts, RcPidUnW) ->
     case wrap_riak_client(RcPidUnW) of
         {ok, RcPid} ->
@@ -186,7 +186,7 @@ list_multipart_uploads_with_2ikey(Bucket, Opts, RcPid, Key2i) ->
 
 
 -spec list_parts(binary(), binary(), binary(),
-                 binary(), acl_owner3(), proplists:proplist(), nopid | pid()) ->
+                 binary(), acl_owner(), proplists:proplist(), nopid | pid()) ->
           {ok, [part_descr()]} | {error, term()}.
 list_parts(Bucket, Key, ObjVsn, UploadId, Caller, Opts, RcPidUnW) ->
     Extra = {Opts},
@@ -194,7 +194,7 @@ list_parts(Bucket, Key, ObjVsn, UploadId, Caller, Opts, RcPidUnW) ->
 
 
 -spec upload_part(binary(), binary(), binary(),
-                  binary(), non_neg_integer(), non_neg_integer(), acl_owner3(), pid()) ->
+                  binary(), non_neg_integer(), non_neg_integer(), acl_owner(), pid()) ->
           {upload_part_ready, binary(), pid()} | {error, riak_unavailable | notfound}.
 upload_part(Bucket, Key, ObjVsn, UploadId, PartNumber, Size, Caller, RcPidUnW) ->
     Extra = {Bucket, Key, ObjVsn, UploadId, Caller, PartNumber, Size},
@@ -220,7 +220,7 @@ upload_part_1blob(PutPid, Blob) ->
 %% the ?MULTIPART_MANIFEST in a mergeable way.  {sigh}
 
 -spec upload_part_finished(binary(), binary(), binary(),
-                           binary(), non_neg_integer(), binary(), term(), acl_owner3(), pid()) ->
+                           binary(), non_neg_integer(), binary(), term(), acl_owner(), pid()) ->
           ok | {error, any()}.
 upload_part_finished(Bucket, Key, ObjVsn,
                      UploadId, _PartNumber, PartUUID, MD5,

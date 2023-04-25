@@ -65,6 +65,7 @@
 -spec create_bucket(rcs_user(), riakc_object:riakc_object(), binary(), bag_id(), acl(), riak_client()) ->
           ok | {error, term()}.
 create_bucket(User, _UserObj, Bucket, BagId, ACL, _RcPid) ->
+    ?LOG_DEBUG("ACL: ~p", [ACL]),
     CurrentBuckets = get_buckets(User),
 
     %% Do not attempt to create bucket if the user already owns it
@@ -286,8 +287,9 @@ get_buckets(?RCS_USER{buckets=Buckets}) ->
 %% @doc Set the ACL for a bucket. Existing ACLs are only
 %% replaced, they cannot be updated.
 -spec set_bucket_acl(rcs_user(), riakc_obj:riakc_obj(), binary(), acl(), riak_client()) ->
-                            ok | {error, term()}.
+          ok | {error, term()}.
 set_bucket_acl(User, _UserObj, Bucket, ACL, _RcPid) ->
+    ?LOG_DEBUG("set_bucket_acl(ACL ~p)", [ACL]),
     serialized_bucket_op(Bucket,
                          ACL,
                          User,
@@ -296,8 +298,9 @@ set_bucket_acl(User, _UserObj, Bucket, ACL, _RcPid) ->
 
 %% @doc Set the policy for a bucket. Existing policy is only overwritten.
 -spec set_bucket_policy(rcs_user(), riakc_obj:riakc_obj(), binary(), []|policy()|acl(), riak_client()) ->
-                               ok | {error, term()}.
+          ok | {error, term()}.
 set_bucket_policy(User, _UserObj, Bucket, PolicyJson, _RcPid) ->
+    ?LOG_DEBUG("set_bucket_policy(PolicyJson ~p)", [PolicyJson]),
     serialized_bucket_op(Bucket,
                          PolicyJson,
                          User,
@@ -306,7 +309,7 @@ set_bucket_policy(User, _UserObj, Bucket, PolicyJson, _RcPid) ->
 
 %% @doc Set the policy for a bucket. Existing policy is only overwritten.
 -spec delete_bucket_policy(rcs_user(), riakc_obj:riakc_obj(), binary(), riak_client()) ->
-                                  ok | {error, term()}.
+          ok | {error, term()}.
 delete_bucket_policy(User, _UserObj, Bucket, _RcPid) ->
     serialized_bucket_op(Bucket,
                          [],
@@ -316,7 +319,7 @@ delete_bucket_policy(User, _UserObj, Bucket, _RcPid) ->
 
 %% @doc fetch moss.bucket and return acl and policy
 -spec get_bucket_acl_policy(binary(), atom(), riak_client()) ->
-                                   {acl(), policy()} | {error, term()}.
+          {acl(), policy()} | {error, term()}.
 get_bucket_acl_policy(Bucket, PolicyMod, RcPid) ->
     case fetch_bucket_object(Bucket, RcPid) of
         {ok, Obj} ->
@@ -325,7 +328,9 @@ get_bucket_acl_policy(Bucket, PolicyMod, RcPid) ->
             %% resolve if possible.
             Contents = riakc_obj:get_contents(Obj),
             Acl = riak_cs_acl:bucket_acl_from_contents(Bucket, Contents),
+            ?LOG_DEBUG("Acl: ~p", [Acl]),
             Policy = PolicyMod:bucket_policy_from_contents(Bucket, Contents),
+            ?LOG_DEBUG("Policy: ~p", [Policy]),
             format_acl_policy_response(Acl, Policy);
         {error, _}=Error ->
             Error
@@ -398,9 +403,11 @@ versioning_json_to_struct({struct, Doc}) ->
 %% @doc Generate a JSON document to use for a bucket
 %% ACL request.
 bucket_acl_json(ACL, KeyId) ->
+    ?LOG_DEBUG("AAAAAAAAAAAAA ~p", [ACL]),
     jason:encode([{requester, KeyId},
                   {acl, ACL}],
-                 [{records, [{acl_v3, record_info(fields, acl_v3)}]}]).
+                 [{records, [{acl_v3, record_info(fields, acl_v3)},
+                             {acl_grant_v2, record_info(fields, acl_grant_v2)}]}]).
 
 %% @doc Generate a JSON document to use for a bucket
 -spec bucket_policy_json(binary(), string()) -> string().

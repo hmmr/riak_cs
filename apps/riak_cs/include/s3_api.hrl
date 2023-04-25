@@ -151,7 +151,7 @@
 -record(amz_policy, { version = <<"2008-10-17">> :: binary()  % no other value is allowed than default
                     , id = undefined :: undefined | binary()  % had better use uuid: should be UNIQUE
                     , statement = [] :: [#statement{}]
-                    , creation_time = os:timestamp(millisecond) :: erlang:timestamp()
+                    , creation_time = os:timestamp(millisecond) :: non_neg_integer()
          }).
 -type amz_policy() :: #amz_policy{}.
 -define(AMZ_POLICY, #amz_policy).

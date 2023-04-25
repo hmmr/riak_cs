@@ -25,14 +25,14 @@
 -type acl_perm() :: 'READ' | 'WRITE' | 'READ_ACP' | 'WRITE_ACP' | 'FULL_CONTROL'.
 -type acl_perms() :: [acl_perm()].
 -type group_grant() :: 'AllUsers' | 'AuthUsers'.
--type acl_grantee() :: {DisplayName :: string(),
-                        CanonicalID :: string()} |
-                       group_grant().
+%% -type acl_grantee() :: {DisplayName :: string(),
+%%                         CanonicalID :: string()} |
+%%                        group_grant().
 %%-type acl_grant() :: {acl_grantee(), acl_perms()}.
 %% acl_v1 owner fields: {DisplayName, CanonicalId}
--type acl_owner2() :: {string(), string()}.
+%%-type acl_owner2() :: {string(), string()}.
 %% acl_owner3: {display name, canonical id, key id}
--type acl_owner3() :: {string(), string(), string()}.
+%%-type acl_owner3() :: {string(), string(), string()}.
 %% -type acl_owner() :: acl_owner2() | acl_owner3().
 
 -record(acl_v1, {owner={"", ""} :: acl_owner(),

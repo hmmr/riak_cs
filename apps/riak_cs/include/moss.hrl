@@ -66,7 +66,7 @@
 -record(moss_bucket_v1, { name :: string() | binary()
                         , last_action :: undefined | created | deleted
                         , creation_date :: undefined | string()
-                        , modification_time :: undefined | erlang:timestamp()
+                        , modification_time :: undefined | non_neg_integer()
                         , acl :: undefined | acl()
                         }).
 

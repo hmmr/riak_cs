@@ -40,6 +40,7 @@
 -include("riak_cs.hrl").
 -include("riak_cs_api.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(RIAKCPOOL, bucket_list_pool).
 
@@ -70,11 +71,12 @@ api_request(RD, Ctx=#rcs_s3_context{bucket=Bucket,
     Res = riak_cs_api:list_objects(
             objects,
             [B || B <- riak_cs_bucket:get_buckets(User),
-                  B?RCS_BUCKET.name =:= binary_to_list(Bucket)],
+                  B?RCS_BUCKET.name =:= Bucket],
             Ctx#rcs_s3_context.bucket,
             get_max_keys(RD),
             get_options(RD),
             RcPid),
+    ?LOG_DEBUG("Are we listed? ~p", [Res]),
     riak_cs_dtrace:dt_bucket_return(?MODULE, <<"list_keys">>, [200], [UserName, Bucket]),
     Res.
 

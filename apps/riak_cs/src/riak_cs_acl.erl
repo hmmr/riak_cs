@@ -1,7 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -92,14 +92,14 @@ anonymous_bucket_access(_Bucket, RequestedAccess, RcPid, BucketAcl) ->
 %% @doc Determine if anonymous access is set for the object.
 %% @TODO Enhance when doing object ACLs
 -spec anonymous_object_access(riakc_obj:riakc_obj(), acl(), atom(), riak_client()) ->
-                                     {true, string()} |
-                                     false.
+          {true, string()} |
+          false.
 anonymous_object_access(BucketObj, ObjAcl, RequestedAccess, RcPid) ->
     anonymous_object_access(BucketObj, ObjAcl, RequestedAccess, RcPid, undefined).
 
 
 -spec anonymous_object_access(riakc_obj:riakc_obj(), acl(), atom(), riak_client(), acl()|undefined) ->
-                                     {true, string()} | false.
+          {true, string()} | false.
 anonymous_object_access(_BucketObj, _ObjAcl, undefined, _, _) ->
     false;
 anonymous_object_access(BucketObj, ObjAcl, 'WRITE', RcPid, undefined) ->
@@ -213,9 +213,7 @@ bucket_acl_from_contents(Bucket, Contents) ->
     resolve_bucket_metadata(UserMetas, UniqueVals).
 
 resolve_bucket_metadata(Metas, [_Val]) ->
-    ?LOG_DEBUG("ZZZZZZZZ Acls: ~p", [Metas]),
     Acls = [acl_from_meta(M) || M <- Metas],
-    ?LOG_DEBUG("ZZZZZZZZ Acls: ~p", [Acls]),
     resolve_bucket_acls(Acls);
 resolve_bucket_metadata(_Metas, _) ->
     {error, multiple_bucket_owners}.
@@ -237,14 +235,14 @@ newer_acl(_, Acl2) ->
 %% @TODO Enhance when doing object-level ACL work. This is a bit
 %% patchy until object ACLs are done. The bucket owner gets full
 %% control, but bucket-level ACLs only matter for writes otherwise.
--spec object_access(riakc_obj:riakc_obj(), acl(), atom(), string(), riak_client())
-                   -> boolean() | {true, string()}.
+-spec object_access(riakc_obj:riakc_obj(), acl(), atom(), string(), riak_client()) ->
+          boolean() | {true, string()}.
 object_access(BucketObj, ObjAcl, RequestedAccess, CanonicalId, RcPid) ->
     object_access(BucketObj, ObjAcl, RequestedAccess, CanonicalId, RcPid, undefined).
 
 
--spec object_access(riakc_obj:riakc_obj(), acl(), atom(), string(), riak_client(), undefined|acl())
-                   -> boolean() | {true, string()}.
+-spec object_access(riakc_obj:riakc_obj(), acl(), atom(), string(), riak_client(), undefined|acl()) ->
+          boolean() | {true, string()}.
 object_access(_BucketObj, _ObjAcl, undefined, _CanonicalId, _, _) ->
     false;
 object_access(_BucketObj, _ObjAcl, _RequestedAccess, undefined, _RcPid, _) ->
@@ -261,12 +259,14 @@ object_access(BucketObj, ObjAcl, 'WRITE', CanonicalId, RcPid, undefined) ->
             false
     end;
 object_access(_BucketObj, _ObjAcl, 'WRITE', CanonicalId, RcPid, BucketAcl) ->
-    ?LOG_DEBUG("ObjAcl: ~p; CanonicalId: ~p", [_ObjAcl, CanonicalId]),
+    ?LOG_DEBUG("BucketAcl: ~p; CanonicalId: ~p", [BucketAcl, CanonicalId]),
     %% Fetch the bucket's ACL
     IsBucketOwner = is_owner(BucketAcl, CanonicalId),
     HasBucketPerm = has_permission(acl_grants(BucketAcl),
                                    'WRITE',
                                    CanonicalId),
+    ?LOG_DEBUG("IsBucketOwner: ~p", [IsBucketOwner]),
+    ?LOG_DEBUG("HasBucketPerm: ~p, grants ~p", [HasBucketPerm, acl_grants(BucketAcl)]),
     case HasBucketPerm of
         true when IsBucketOwner == true ->
             true;
@@ -341,7 +341,7 @@ exprec_grant(Map) ->
 acl_from_meta([]) ->
     ?ACL_UNDEF;
 acl_from_meta([{?MD_ACL, Acl} | _]) ->
-    {ok, Acl};
+    {ok, binary_to_term(Acl)};
 acl_from_meta([_ | RestMD]) ->
     acl_from_meta(RestMD).
 
@@ -357,7 +357,7 @@ acl_grants(#acl_v1{grants=Grants}) ->
 -spec group_grants([acl_grant()], [acl_grant()]) -> [acl_grant()].
 group_grants([], GroupGrants) ->
     GroupGrants;
-group_grants([HeadGrant={Grantee, _} | RestGrants],
+group_grants([HeadGrant = ?ACL_GRANT{grantee = Grantee} | RestGrants],
              GroupGrants) when is_atom(Grantee) ->
     group_grants(RestGrants, [HeadGrant | GroupGrants]);
 group_grants([_ | RestGrants], _GroupGrants) ->
@@ -381,7 +381,8 @@ has_group_permission([{_, Perms} | RestGrants], RequestedAccess) ->
 -spec has_permission([acl_grant()], atom()) -> boolean().
 has_permission(Grants, RequestedAccess) ->
     GroupGrants = group_grants(Grants, []),
-    case [Perms || {Grantee, Perms} <- GroupGrants,
+    case [Perms || ?ACL_GRANT{grantee = Grantee,
+                              perms = Perms} <- GroupGrants,
                    Grantee =:= 'AllUsers'] of
         [] ->
             false;
@@ -397,7 +398,7 @@ has_permission(Grants, RequestedAccess, CanonicalId) ->
     case user_grant(Grants, CanonicalId) of
         undefined ->
             has_group_permission(GroupGrants, RequestedAccess);
-        {_, Perms} ->
+        ?ACL_GRANT{perms = Perms} ->
             check_permission(RequestedAccess, Perms) orelse
                 has_group_permission(GroupGrants, RequestedAccess)
     end.
@@ -433,9 +434,9 @@ check_permission(_Permission, [_ | RestPerms]) ->
 -spec user_grant([acl_grant()], string()) -> undefined | acl_grant().
 user_grant([], _) ->
     undefined;
-user_grant([{Grantee, _} | RestGrants], _CanonicalId) when is_atom(Grantee) ->
-    user_grant(RestGrants, _CanonicalId);
-user_grant([HeadGrant={{_, CanonicalId}, _} | _], CanonicalId) ->
+user_grant([?ACL_GRANT{grantee = Grantee} | RestGrants], CanonicalId) when is_atom(Grantee) ->
+    user_grant(RestGrants, CanonicalId);
+user_grant([HeadGrant=?ACL_GRANT{grantee = #{canonical_id := CanonicalId}} | _], CanonicalId) ->
     HeadGrant;
 user_grant([_ | RestGrants], _CanonicalId) ->
     user_grant(RestGrants, _CanonicalId).

@@ -287,7 +287,8 @@ acl_from_xml(Xml, KeyId, RcPid) ->
     case riak_cs_xml:scan(Xml) of
         {error, malformed_xml} -> {error, malformed_acl_error};
         {ok, ParsedData} ->
-            BareAcl = ?ACL{owner = #{key_id => KeyId}},
+            BareAcl = ?ACL{owner = #{display_name => undefined,
+                                     key_id => KeyId}},
             process_acl_contents(ParsedData#xmlElement.content, BareAcl, RcPid)
     end.
 
@@ -346,6 +347,7 @@ check_grants(User, Bucket, RequestedAccess, RcPid) ->
 check_grants(undefined, Bucket, RequestedAccess, RcPid, BucketAcl) ->
     riak_cs_acl:anonymous_bucket_access(Bucket, RequestedAccess, RcPid, BucketAcl);
 check_grants(User, Bucket, RequestedAccess, RcPid, BucketAcl) ->
+    ?LOG_DEBUG("BucketAcl ~p", [BucketAcl]),
     riak_cs_acl:bucket_access(Bucket,
                               RequestedAccess,
                               User?RCS_USER.canonical_id,
@@ -354,7 +356,7 @@ check_grants(User, Bucket, RequestedAccess, RcPid, BucketAcl) ->
 
 -spec validate_acl({ok, acl()} | {error, term()}, string()) ->
           {ok, acl()} | {error, access_denied}.
-validate_acl({ok, Acl=?ACL{owner={_, Id, _}}}, Id) ->
+validate_acl({ok, Acl = ?ACL{owner = #{canonical_id := Id}}}, Id) ->
     {ok, Acl};
 validate_acl({ok, _}, _) ->
     {error, access_denied};
@@ -453,7 +455,7 @@ process_acl_contents([], Acl, _) ->
     {ok, Acl};
 process_acl_contents([#xmlElement{content=Content,
                                   name=ElementName}
-                      | RestElements], Acl, RcPid) ->
+                     | RestElements], Acl, RcPid) ->
     ?LOG_DEBUG("Element name: ~p", [ElementName]),
     UpdAclRes =
         case ElementName of
@@ -478,8 +480,7 @@ process_acl_contents([#xmlText{} | RestElements], Acl, RcPid) ->
     process_acl_contents(RestElements, Acl, RcPid).
 
 %% @doc Process an XML element containing acl owner information.
--spec process_owner([riak_cs_xml:xmlNode()], acl(), riak_client()) -> {ok, acl()}.
-process_owner([], Acl = ?ACL{owner = #{display_name := [],
+process_owner([], Acl = ?ACL{owner = #{display_name := undefined,
                                        canonical_id := CanonicalId} = Owner}, RcPid) ->
     case name_for_canonical(CanonicalId, RcPid) of
         {ok, DisplayName} ->
@@ -518,13 +519,16 @@ process_owner([_ | RestElements], Acl, RcPid) ->
 %% @doc Process an XML element containing the grants for the acl.
 process_grants([], Acl, _) ->
     {ok, Acl};
-process_grants([#xmlElement{content=Content,
-                            name=ElementName} |
+process_grants([#xmlElement{content = Content,
+                            name = ElementName} |
                 RestElements], Acl, RcPid) ->
     UpdAcl =
         case ElementName of
             'Grant' ->
-                Grant = process_grant(Content, ?ACL_GRANT{grantee = #{}}, Acl?ACL.owner, RcPid),
+                Grant = process_grant(
+                          Content,
+                          ?ACL_GRANT{grantee = #{display_name => undefined}},
+                          Acl?ACL.owner, RcPid),
                 case Grant of
                     {error, _} ->
                         Grant;
@@ -575,13 +579,13 @@ process_grant([#xmlText{}|RestElements], Grant, Owner, RcPid) ->
 
 %% @doc Process an XML element containing information about
 %% an ACL permission grantee.
-process_grantee([], ?ACL_GRANT{grantee = #{display_name := [],
+process_grantee([], ?ACL_GRANT{grantee = #{display_name := undefined,
                                            canonical_id := CanonicalId} = O
                               } = G,
                 #{display_name := DisplayName,
                   canonical_id := CanonicalId}, _) ->
     G?ACL_GRANT{grantee = O#{display_name => DisplayName}};
-process_grantee([], ?ACL_GRANT{grantee = #{display_name := [],
+process_grantee([], ?ACL_GRANT{grantee = #{display_name := undefined,
                                            canonical_id := CanonicalId} = O
                               } = G,
                 _, RcPid) ->
@@ -658,7 +662,6 @@ process_permission([Content], G = ?ACL_GRANT{perms = Perms0}) ->
 
 %% @doc Construct an acl. The structure is the same for buckets
 %% and objects.
--spec acl(string(), string(), string(), [acl_grant()], erlang:timestamp()) -> acl().
 acl(DisplayName, CanonicalId, KeyId, Grants, CreationTime) ->
     ?ACL{owner = #{display_name => DisplayName,
                    canonical_id => CanonicalId,

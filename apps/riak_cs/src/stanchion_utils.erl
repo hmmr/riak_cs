@@ -97,6 +97,7 @@ get_pbc() ->
 create_bucket(#{bucket := Bucket,
                 requester := OwnerId,
                 acl := Acl_} = FF) ->
+    ?LOG_DEBUG("Acl_ ~p", [Acl_]),
     Acl = riak_cs_acl:exprec_detailed(Acl_),
     BagId = maps:get(bag, FF, undefined),
     case riak_connection() of
@@ -128,7 +129,7 @@ bucket_record(Name, Operation) ->
     ?RCS_BUCKET{name = Name,
                 last_action = Action,
                 creation_date = riak_cs_wm_utils:iso_8601_datetime(),
-                modification_time = os:timestamp()}.
+                modification_time = os:system_time(millisecond)}.
 
 
 %% @doc Attempt to create a new user
@@ -287,19 +288,17 @@ close_riak_connection(Pid) ->
 
 %% @doc Set the ACL for a bucket
 -spec set_bucket_acl(binary(), term()) -> ok | {error, term()}.
-set_bucket_acl(Bucket, FieldList) ->
-    %% @TODO Check for missing fields
-    OwnerId = proplists:get_value(<<"requester">>, FieldList, <<>>),
-    AclJson = proplists:get_value(<<"acl">>, FieldList, []),
-    Acl = stanchion_acl_utils:acl_from_json(AclJson),
+set_bucket_acl(Bucket, #{requester := OwnerId,
+                         acl := Acl}) ->
     do_bucket_op(Bucket, OwnerId, [{acl, Acl}], update_acl).
 
 %% @doc add bucket policy in the global namespace
 %% FieldList.policy has JSON-encoded policy from user
 -spec set_bucket_policy(binary(), term()) -> ok | {error, term()}.
 set_bucket_policy(Bucket, FieldList) ->
-    OwnerId = proplists:get_value(<<"requester">>, FieldList, <<>>),
-    PolicyJson = proplists:get_value(<<"policy">>, FieldList, []),
+    ?LOG_DEBUG("FieldList ~p", [FieldList]),
+    OwnerId = proplists:get_value(requester, FieldList, <<>>),
+    PolicyJson = proplists:get_value(policy, FieldList, []),
 
     % @TODO: Already Checked at Riak CS, so store as it is JSON here
     % if overhead of parsing JSON were expensive, need to import
@@ -336,7 +335,6 @@ to_bucket_name(Type, Bucket) ->
 -spec update_user(string(), [{term(), term()}]) ->
                          ok | {error, riak_connect_failed() | term()}.
 update_user(KeyId, UserFields) ->
-    
     case riak_connection() of
         {ok, RiakPid} ->
             try

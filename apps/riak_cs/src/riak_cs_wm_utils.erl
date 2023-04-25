@@ -447,7 +447,6 @@ extract_version_id(RD, Ctx = #rcs_s3_context{local_context = LocalCtx0}) ->
                 %% CS extension, for PutObject should probably be
                 %% better done in s3_rewrite, but doing so will be too
                 %% disruptive for the tidy rewriting flow
-                ?LOG_DEBUG("are we PutObject on a version? ~p", [Defined]),
                 list_to_binary(Defined);
             {V, _} ->
                 list_to_binary(mochiweb_util:unquote(mochiweb_util:unquote(V)))
@@ -494,6 +493,7 @@ maybe_update_context_with_acl_from_headers(RD,
                     DefaultAcl = riak_cs_acl_utils:default_acl(User?RCS_USER.display_name,
                                                                User?RCS_USER.canonical_id,
                                                                User?RCS_USER.key_id),
+                    ?LOG_DEBUG("ADDING DEFAULT ACL ~p", [DefaultAcl]),
                     {ok, Ctx#rcs_s3_context{acl=DefaultAcl}}
             end;
         {error, Reason} ->
@@ -530,9 +530,9 @@ maybe_acl_from_context_and_request(RD, #rcs_s3_context{user=User,
         true ->
             Headers = normalize_headers(RD),
             BucketOwner = bucket_owner(BucketObj),
-            Owner = {User?RCS_USER.display_name,
-                     User?RCS_USER.canonical_id,
-                     User?RCS_USER.key_id},
+            Owner = #{display_name => User?RCS_USER.display_name,
+                      canonical_id => User?RCS_USER.canonical_id,
+                      key_id => User?RCS_USER.key_id},
             {ok, acl_from_headers(Headers, Owner, BucketOwner, RcPid)};
         false ->
             error
@@ -697,14 +697,11 @@ bucket_access_authorize_helper(AccessType, Deletable, RD, Ctx) ->
     RequestedAccess =
         riak_cs_acl_utils:requested_access(Method, is_acl_request(AccessType)),
     Bucket = list_to_binary(wrq:path_info(bucket, RD)),
-    PermCtx = Ctx#rcs_s3_context{bucket=Bucket,
-                                 requested_perm=RequestedAccess},
+    PermCtx = Ctx#rcs_s3_context{bucket = Bucket,
+                                 requested_perm = RequestedAccess},
     handle_bucket_acl_policy_response(
       riak_cs_bucket:get_bucket_acl_policy(Bucket, PolicyMod, RcPid),
-      AccessType,
-      Deletable,
-      RD,
-      PermCtx).
+      AccessType, Deletable, RD, PermCtx).
 
 handle_bucket_acl_policy_response({error, notfound}, _, _, RD, Ctx) ->
     ResponseMod = Ctx#rcs_s3_context.response_module,
@@ -819,7 +816,6 @@ object_access_authorize_helper(AccessType, Deletable, SkipAcl,
        andalso is_boolean(SkipAcl) ->
     #key_context{bucket_object=BucketObj} = LocalCtx,
     #key_context{bucket=_B} = LocalCtx,
-    ?LOG_DEBUG("_Bucket ~p", [_B]),
     case translate_bucket_policy(PolicyMod, BucketObj) of
         {error, multiple_bucket_owners=E} ->
             %% We want to bail out early if there are siblings when
@@ -830,6 +826,7 @@ object_access_authorize_helper(AccessType, Deletable, SkipAcl,
             %% so we can assume to bucket does not exist.
             ResponseMod:api_error(no_such_bucket, RD, Ctx);
         Policy ->
+            ?LOG_DEBUG("Policy ~p", [Policy]),
             Method = wrq:method(RD),
             CanonicalId = extract_canonical_id(User),
             Access = PolicyMod:reqdata_to_access(RD, AccessType, CanonicalId),
@@ -893,6 +890,7 @@ check_object_authorization(Access, SkipAcl, ObjectAcl, Policy,
                            RcPid, BucketObj) ->
     #access_v1{method = Method, target = AccessType} = Access,
     RequestedAccess = requested_access_helper(AccessType, Method),
+    ?LOG_DEBUG("ObjectAcl: ~p, RequestedAccess: ~p, Policy ~p", [ObjectAcl, RequestedAccess, Policy]),
     Acl = case SkipAcl of
               true -> true;
               false -> riak_cs_acl:object_access(BucketObj,
