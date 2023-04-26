@@ -19,7 +19,7 @@
 %%
 %% ---------------------------------------------------------------------
 
--module(riak_cs_s3_auth).
+-module(riak_cs_aws_auth).
 
 -behavior(riak_cs_auth).
 

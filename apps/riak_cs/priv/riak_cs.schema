@@ -448,7 +448,7 @@
 
 %% @doc Authentication module.
 {mapping, "auth_module", "riak_cs.auth_module", [
-  {commented, riak_cs_s3_auth},
+  {commented, riak_cs_aws_auth},
   {datatype, atom},
   {validators, ["valid_auth_module"]}
 ]}.
@@ -456,9 +456,8 @@
 {validator,
   "valid_auth_module",
   "should be a valid auth module",
-  fun(riak_cs_s3_auth) -> true;
+  fun(riak_cs_aws_auth) -> true;
      (riak_cs_keystone_auth) -> true;
-     (riak_cs_saml_auth) -> true;
      (_) -> false
   end}.
 

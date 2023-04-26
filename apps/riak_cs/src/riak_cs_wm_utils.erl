@@ -108,8 +108,8 @@ service_available(Pool, RD, Ctx) ->
 parse_auth_header(KeyId, true) when KeyId =/= undefined ->
     {riak_cs_s3_passthru_auth, KeyId, undefined};
 parse_auth_header(S, _) ->
-    {KeyId, Signature} = riak_cs_s3_auth:parse_auth_header(S),
-    {riak_cs_s3_auth, KeyId, Signature}.
+    {KeyId, Signature} = riak_cs_aws_auth:parse_auth_header(S),
+    {riak_cs_aws_auth, KeyId, Signature}.
 
 %% @doc Parse authentication query parameters and determine
 %%      the appropriate module to use to authenticate the request.
@@ -127,7 +127,7 @@ parse_auth_params(undefined, _, false) ->
 parse_auth_params(_, undefined, _) ->
     {riak_cs_blockall_auth, undefined, undefined};
 parse_auth_params(KeyId, Signature, _) ->
-    {riak_cs_s3_auth, KeyId, Signature}.
+    {riak_cs_aws_auth, KeyId, Signature}.
 
 %% @doc Lookup the user specified by the access headers, and call
 %% `Next(RD, NewCtx)' if there is no auth error.
