@@ -97,9 +97,9 @@ one_three_resources(Version) when Version < 010300 ->
 one_three_resources(_Version) ->
     [
      %% Bucket resources
-     {["buckets", bucket, "uploads"], riak_cs_wm_common, props(riak_cs_wm_bucket_uploads)},
-     {["buckets", bucket, "policy"], riak_cs_wm_common, props(riak_cs_wm_bucket_policy)},
+     {["buckets", bucket, "uploads"], riak_cs_s3_wm_common, props(riak_cs_wm_bucket_uploads)},
+     {["buckets", bucket, "policy"], riak_cs_s3_wm_common, props(riak_cs_wm_bucket_policy)},
      %% Object resources
-     {["buckets", bucket, "objects", object, "uploads", uploadId], riak_cs_wm_common, props(riak_cs_wm_object_upload_part)},
-     {["buckets", bucket, "objects", object, "uploads"], riak_cs_wm_common, props(riak_cs_wm_object_upload)}
+     {["buckets", bucket, "objects", object, "uploads", uploadId], riak_cs_wm_s3_common, props(riak_cs_wm_object_upload_part)},
+     {["buckets", bucket, "objects", object, "uploads"], riak_cs_wm_s3_common, props(riak_cs_wm_object_upload)}
     ].
