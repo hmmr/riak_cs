@@ -113,6 +113,7 @@
 
 -define(JSON_TYPE, "application/json").
 -define(XML_TYPE, "application/xml").
+-define(WWWFORM_TYPE, "application/x-www-form-urlencoded").
 
 
 

@@ -26,7 +26,7 @@
          content_types_provided/2,
          content_types_accepted/2,
          authorize/2,
-         accept_json/2,
+         accept_wwwform/2,
          accept_xml/2,
          allowed_methods/2,
          post_is_create/2,
@@ -40,7 +40,7 @@
               content_types_provided/2,
               content_types_accepted/2,
               authorize/2,
-              accept_json/2,
+              accept_wwwform/2,
               accept_xml/2,
               allowed_methods/2,
               post_is_create/2,
@@ -75,7 +75,7 @@ allowed_methods(_RD, _Ctx) ->
     {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
-    {[{?XML_TYPE, accept_xml}, {?JSON_TYPE, accept_json}], RD, Ctx}.
+    {[{?WWWFORM_TYPE, accept_wwwform}, {?XML_TYPE, accept_xml}], RD, Ctx}.
 
 -spec content_types_provided(#wm_reqdata{}, #rcs_iam_context{}) ->
     {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
@@ -96,10 +96,11 @@ post_is_create(RD, Ctx) -> {true, RD, Ctx}.
 create_path(RD, Ctx) ->
     {wrq:disp_path(RD), RD, Ctx}.
 
--spec accept_json(#wm_reqdata{}, #rcs_iam_context{}) ->
+-spec accept_wwwform(#wm_reqdata{}, #rcs_iam_context{}) ->
     {boolean() | {halt, term()}, term(), term()}.
-accept_json(RD, Ctx) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
+accept_wwwform(RD, Ctx) ->
+    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_wwwform">>),
+    ?LOG_DEBUG("Body form ~p", [wrq:req_body(RD)]),
     Specs =
         lists:foldl(fun role_json_filter/2, [], riak_cs_json:from_json(wrq:req_body(RD))),
     role_response(
