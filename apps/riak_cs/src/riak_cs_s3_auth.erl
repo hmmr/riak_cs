@@ -310,7 +310,7 @@ string_to_sign_v4(AuthAttrs, AllHeaders, CanonicalRequest) ->
     %% Are there any good points to check `AwsRegion' to be region in app env?
     %% So far, it does not improve security (at least for CS) but
     %% introduces some complexity for client (config/coding/etc).
-    [_UserId, CredDate, AwsRegion, "s3" = AwsService, "aws4_request" = AwsRequest] =
+    [_UserId, CredDate, AwsRegion, AwsService, "aws4_request" = AwsRequest] =
         string:tokens(Cred, [$/]),
     %% TODO: Validate `CredDate' be within 7 days
     Scope = [CredDate, $/, AwsRegion, $/, AwsService, $/, AwsRequest],

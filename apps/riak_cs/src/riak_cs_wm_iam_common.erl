@@ -88,7 +88,7 @@ init(Config) ->
                            response_module = RespModule,
                            exports_fun = ExportsFun,
                            stats_prefix = StatsPrefix,
-                           start_time = os:timestamp(),
+                           start_time = os:system_time(millisecond),
                            submodule = Mod,
                            api = Api},
     resource_call(Mod, init, [Ctx], ExportsFun).
@@ -162,7 +162,6 @@ forbidden(RD, Ctx=#rcs_iam_context{auth_module=AuthMod,
                                    submodule=Mod,
                                    riak_client=RcPid,
                                    exports_fun=ExportsFun}) ->
-
     {AuthResult, AnonOk} =
         case AuthMod:identify(RD, Ctx) of
             failed ->
@@ -201,7 +200,7 @@ allowed_methods(RD, Ctx=#rcs_iam_context{submodule=Mod,
     riak_cs_dtrace:dt_wm_entry({?MODULE, Mod}, <<"allowed_methods">>),
     Methods = resource_call(Mod,
                             allowed_methods,
-                            [],
+                            [RD, Ctx],
                             ExportsFun),
     {Methods, RD, Ctx}.
 

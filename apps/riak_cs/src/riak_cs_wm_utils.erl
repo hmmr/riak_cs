@@ -1126,8 +1126,8 @@ valid_entity_length(MaxLen, RD, #rcs_s3_context{response_module=ResponseMod,
 -spec role_access_authorize_helper(atom(), #wm_reqdata{}, #rcs_s3_context{}) ->
           authorized_response().
 role_access_authorize_helper(_Method, RD, Ctx) ->
-    logger:debug("STUB role_access_authorize_helper, returning true"),
-    {true, RD, Ctx}.
+    logger:debug("STUB role_access_authorize_helper, returning false"),
+    {false, RD, Ctx}.
 
 %% ===================================================================
 %% Internal functions

@@ -57,7 +57,7 @@ rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
     {RewrittenHeaders, RewrittenPath}.
 
 
-rewrite_path('POST', "/", _QS) ->
+rewrite_path(_Method, "/", _QS) ->
     "/roles".
 %% rewrite_path(Method, "/", QS) ->
 %%     Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),

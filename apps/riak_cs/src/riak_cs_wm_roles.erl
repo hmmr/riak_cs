@@ -22,8 +22,7 @@
 
 -module(riak_cs_wm_roles).
 
--export([init/1,
-         service_available/2,
+-export([service_available/2,
          content_types_provided/2,
          content_types_accepted/2,
          authorize/2,
@@ -31,13 +30,13 @@
          accept_xml/2,
          allowed_methods/2,
          post_is_create/2,
+         create_path/2,
          produce_json/2,
          produce_xml/2,
          finish_request/2
         ]).
 
--ignore_xref([init/1,
-              service_available/2,
+-ignore_xref([service_available/2,
               content_types_provided/2,
               content_types_accepted/2,
               authorize/2,
@@ -45,6 +44,7 @@
               accept_xml/2,
               allowed_methods/2,
               post_is_create/2,
+              create_path/2,
               produce_json/2,
               produce_xml/2,
               finish_request/2
@@ -59,36 +59,26 @@
 %% Webmachine callbacks
 %% -------------------------------------------------------------------
 
--spec init(proplists:proplist()) -> {ok, #rcs_iam_context{}}.
-init(Config) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"init">>),
-    %% Check if authentication is disabled and
-    %% set that in the context.
-    AuthBypass = not proplists:get_value(admin_auth_enabled, Config),
-    Api = riak_cs_config:api(),
-    RespModule = riak_cs_config:response_module(Api),
-    {ok, #rcs_iam_context{auth_bypass = AuthBypass,
-                          response_module = RespModule}}.
-
 -spec service_available(#wm_reqdata{}, #rcs_iam_context{}) -> {true, #wm_reqdata{}, #rcs_iam_context{}}.
 service_available(RD, Ctx) ->
+    ?LOG_DEBUG("are we service_available?", []),
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"service_available">>),
     riak_cs_wm_utils:service_available(RD, Ctx).
 
--spec allowed_methods(#wm_reqdata{}, #rcs_iam_context{}) -> {[atom()], #wm_reqdata{}, #rcs_iam_context{}}.
-allowed_methods(RD, Ctx) ->
+-spec allowed_methods(#wm_reqdata{}, #rcs_iam_context{}) -> [atom()].
+allowed_methods(_RD, _Ctx) ->
     ?LOG_DEBUG("Are we even here?", []),
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"allowed_methods">>),
-    {['GET', 'HEAD', 'POST'], RD, Ctx}.
+    ['GET', 'HEAD', 'POST'].
 
 -spec content_types_accepted(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {[{string(), accept_xml}], #wm_reqdata{}, #rcs_iam_context{}}.
+    {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
     {[{?XML_TYPE, accept_xml}, {?JSON_TYPE, accept_json}], RD, Ctx}.
 
 -spec content_types_provided(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {[{string(), produce_xml}], #wm_reqdata{}, #rcs_iam_context{}}.
+    {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_provided(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_provided">>),
     {[{?XML_TYPE, produce_xml}, {?JSON_TYPE, produce_json}], RD, Ctx}.
@@ -102,6 +92,9 @@ authorize(RD, Ctx) ->
 
 
 post_is_create(RD, Ctx) -> {true, RD, Ctx}.
+
+create_path(RD, Ctx) ->
+    {wrq:disp_path(RD), RD, Ctx}.
 
 -spec accept_json(#wm_reqdata{}, #rcs_iam_context{}) ->
     {boolean() | {halt, term()}, term(), term()}.
