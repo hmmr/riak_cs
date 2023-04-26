@@ -125,7 +125,7 @@
 
 -include("riak_cs_gc.hrl").
 -include("oos_api.hrl").
--include("s3_api.hrl").
+-include("aws_api.hrl").
 
 -define(MAYBE_WARN(Bool, Msg),
         case (Bool) of
@@ -170,13 +170,13 @@ admin_creds() ->
 cs_version() ->
     get_env(riak_cs, cs_version, undefined).
 
--spec api() -> s3 | oos.
+-spec api() -> aws | oos.
 api() ->
     api(get_env(riak_cs, rewrite_module, ?AWS_API_MOD)).
 
 -spec api(atom() | undefined) -> s3 | oos | undefined.
 api(?AWS_API_MOD) ->
-    s3;
+    aws;
 api(?OOS_API_MOD) ->
     oos;
 api(_) ->

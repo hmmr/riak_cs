@@ -23,7 +23,7 @@
 
 -include("manifest.hrl").
 -include("moss.hrl").
--include("s3_api.hrl").
+-include("aws_api.hrl").
 
 -type api() :: s3 | oos.
 

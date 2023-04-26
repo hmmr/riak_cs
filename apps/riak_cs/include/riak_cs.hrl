@@ -22,7 +22,7 @@
 -ifndef(RIAK_CS_HRL).
 -define(RIAK_CS_HRL, included).
 
--include("s3_api.hrl").
+-include("aws_api.hrl").
 -include("riak_cs_web.hrl").
 
 -define(RCS_VERSION, 030200).

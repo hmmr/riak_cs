@@ -23,7 +23,7 @@
 
 -include("riak_cs.hrl").
 -include("stanchion.hrl").
--include("s3_api.hrl").
+-include("aws_api.hrl").
 
 -compile(export_all).
 -compile(nowarn_export_all).

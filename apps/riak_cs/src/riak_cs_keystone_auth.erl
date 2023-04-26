@@ -26,7 +26,7 @@
 -export([identify/2, authenticate/4]).
 
 -include("riak_cs.hrl").
--include("s3_api.hrl").
+-include("aws_api.hrl").
 -include("oos_api.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
