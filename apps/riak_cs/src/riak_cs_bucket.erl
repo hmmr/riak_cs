@@ -464,7 +464,7 @@ bucket_empty_any_pred(RcPid, Bucket) ->
 
 %% @doc Fetches the bucket object and verify its status.
 -spec fetch_bucket_object(binary(), riak_client()) ->
-                                 {ok, riakc_obj:riakc_obj()} | {error, term()}.
+          {ok, riakc_obj:riakc_obj()} | {error, term()}.
 fetch_bucket_object(BucketName, RcPid) ->
     case fetch_bucket_object_raw(BucketName, RcPid) of
         {ok, Obj} ->

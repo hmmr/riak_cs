@@ -27,7 +27,7 @@
         ]).
 
 -include("riak_cs.hrl").
--include("riak_cs_api.hrl").
+-include("riak_cs_web.hrl").
 
 %% @doc Return a user's buckets.
 -spec list_buckets(rcs_user()) -> ?LBRESP{}.

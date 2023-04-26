@@ -27,7 +27,7 @@
 -behaviour(gen_fsm).
 
 -include("riak_cs.hrl").
--include("riak_cs_api.hrl").
+-include("riak_cs_web.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %%%===================================================================
@@ -130,7 +130,6 @@ start_link(RcPid, ListKeysRequest, FoldObjectsBatchSize) ->
 
 -spec init(list()) -> {ok, prepare, state(), 0}.
 init([RcPid, Request, FoldObjectsBatchSize]) ->
-
     State = #state{riak_client=RcPid,
                    fold_objects_batch_size=FoldObjectsBatchSize,
                    req=Request},
@@ -280,10 +279,8 @@ respond(StateData=#state{req=Request=?LOREQ{max_keys=UserMaxKeys,
             {NewManis, NewPrefixes} =
             riak_cs_list_objects_utils:untagged_manifest_and_prefix(SlicedTaggedItems),
             Response =
-            response_from_manifests_and_common_prefixes(Request,
-                                                        Truncated,
-                                                        NextMarker,
-                                                        {NewManis, NewPrefixes}),
+                response_from_manifests_and_common_prefixes(
+                  Request, Truncated, NextMarker, {NewManis, NewPrefixes}),
             try_reply({ok, Response}, StateData);
         false ->
             RcPid = StateData#state.riak_client,

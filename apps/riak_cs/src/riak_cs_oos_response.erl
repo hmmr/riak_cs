@@ -28,7 +28,6 @@
          status_code/1]).
 
 -include("riak_cs.hrl").
--include("riak_cs_api.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
 -spec respond(term(), #wm_reqdata{}, #rcs_s3_context{}) ->

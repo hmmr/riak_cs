@@ -25,7 +25,6 @@
 -module(riak_cs_xml).
 
 -include("riak_cs.hrl").
--include("riak_cs_api.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -ifdef(TEST).

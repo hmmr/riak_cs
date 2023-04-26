@@ -63,9 +63,9 @@ authorize(RD, Ctx) ->
     riak_cs_wm_utils:bucket_access_authorize_helper(bucket, false, RD, Ctx).
 
 -spec api_request(#wm_reqdata{}, #rcs_s3_context{}) -> {ok, ?LORESP{}} | {error, term()}.
-api_request(RD, Ctx=#rcs_s3_context{bucket=Bucket,
-                                    riak_client=RcPid,
-                                    user=User}) ->
+api_request(RD, Ctx = #rcs_s3_context{bucket = Bucket,
+                                      riak_client = RcPid,
+                                      user = User}) ->
     UserName = riak_cs_wm_utils:extract_name(User),
     riak_cs_dtrace:dt_bucket_entry(?MODULE, <<"list_keys">>, [], [UserName, Bucket]),
     Res = riak_cs_api:list_objects(

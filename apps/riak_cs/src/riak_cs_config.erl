@@ -124,7 +124,6 @@
          os_users_url/0]).
 
 -include("riak_cs_gc.hrl").
--include("riak_cs_api.hrl").
 -include("oos_api.hrl").
 -include("s3_api.hrl").
 

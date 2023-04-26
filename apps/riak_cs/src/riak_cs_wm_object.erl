@@ -52,6 +52,7 @@
              ]).
 
 -include("riak_cs.hrl").
+-include("riak_cs_web.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 -include_lib("webmachine/include/wm_reqstate.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -251,8 +252,9 @@ parse_range(RD, ResourceLength) ->
 
 %% @doc Callback for deleting an object.
 -spec delete_resource(#wm_reqdata{}, #rcs_s3_context{}) -> {true, #wm_reqdata{}, #rcs_s3_context{}}.
-delete_resource(RD, Ctx=#rcs_s3_context{local_context=LocalCtx, riak_client=RcPid}) ->
-    #key_context{bucket=Bucket,
+delete_resource(RD, Ctx = #rcs_s3_context{local_context = LocalCtx,
+                                          riak_client = RcPid}) ->
+    #key_context{bucket = Bucket,
                  key = Key,
                  obj_vsn = ObjVsn,
                  get_fsm_pid = GetFsmPid} = LocalCtx,

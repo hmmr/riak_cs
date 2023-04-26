@@ -50,7 +50,7 @@
          max_cache_size/0]).
 
 -include("riak_cs.hrl").
--include("riak_cs_api.hrl").
+-include("riak_cs_web.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -define(DICTMODULE, dict).
