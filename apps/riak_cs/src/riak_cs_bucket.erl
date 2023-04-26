@@ -65,7 +65,6 @@
 -spec create_bucket(rcs_user(), riakc_object:riakc_object(), binary(), bag_id(), acl(), riak_client()) ->
           ok | {error, term()}.
 create_bucket(User, _UserObj, Bucket, BagId, ACL, _RcPid) ->
-    ?LOG_DEBUG("ACL: ~p", [ACL]),
     CurrentBuckets = get_buckets(User),
 
     %% Do not attempt to create bucket if the user already owns it
@@ -289,7 +288,6 @@ get_buckets(?RCS_USER{buckets=Buckets}) ->
 -spec set_bucket_acl(rcs_user(), riakc_obj:riakc_obj(), binary(), acl(), riak_client()) ->
           ok | {error, term()}.
 set_bucket_acl(User, _UserObj, Bucket, ACL, _RcPid) ->
-    ?LOG_DEBUG("set_bucket_acl(ACL ~p)", [ACL]),
     serialized_bucket_op(Bucket,
                          ACL,
                          User,
@@ -300,7 +298,6 @@ set_bucket_acl(User, _UserObj, Bucket, ACL, _RcPid) ->
 -spec set_bucket_policy(rcs_user(), riakc_obj:riakc_obj(), binary(), []|policy()|acl(), riak_client()) ->
           ok | {error, term()}.
 set_bucket_policy(User, _UserObj, Bucket, PolicyJson, _RcPid) ->
-    ?LOG_DEBUG("set_bucket_policy(PolicyJson ~p)", [PolicyJson]),
     serialized_bucket_op(Bucket,
                          PolicyJson,
                          User,
@@ -328,9 +325,7 @@ get_bucket_acl_policy(Bucket, PolicyMod, RcPid) ->
             %% resolve if possible.
             Contents = riakc_obj:get_contents(Obj),
             Acl = riak_cs_acl:bucket_acl_from_contents(Bucket, Contents),
-            ?LOG_DEBUG("Acl: ~p", [Acl]),
             Policy = PolicyMod:bucket_policy_from_contents(Bucket, Contents),
-            ?LOG_DEBUG("Policy: ~p", [Policy]),
             format_acl_policy_response(Acl, Policy);
         {error, _}=Error ->
             Error
@@ -403,7 +398,6 @@ versioning_json_to_struct({struct, Doc}) ->
 %% @doc Generate a JSON document to use for a bucket
 %% ACL request.
 bucket_acl_json(ACL, KeyId) ->
-    ?LOG_DEBUG("AAAAAAAAAAAAA ~p", [ACL]),
     jason:encode([{requester, KeyId},
                   {acl, ACL}],
                  [{records, [{acl_v3, record_info(fields, acl_v3)},
@@ -579,7 +573,6 @@ bucket_fun(delete, Bucket, _BagId, _ACL, KeyId, AdminCreds) ->
 %% creation request.
 -spec bucket_json(binary(), bag_id(), acl(), string()) -> string().
 bucket_json(Bucket, BagId, ACL, KeyId)  ->
-    ?LOG_DEBUG("ACL: ~p", [ACL]),
     BagElement = case BagId of
                      undefined -> [];
                      _ -> [{bag, BagId}]
@@ -724,7 +717,6 @@ handle_stanchion_response(409, ErrorDoc, Op, Bucket)
             %% Broken, returns 500
             throw({remaining_multipart_upload_on_deleted_bucket, Bucket});
         Other ->
-            ?LOG_DEBUG("errordoc: ~p => ~s", [Other, ErrorDoc]),
             riak_cs_s3_response:error_response(ErrorDoc)
     end;
 handle_stanchion_response(_C, ErrorDoc, _M, _) ->

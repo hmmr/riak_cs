@@ -97,7 +97,6 @@ get_pbc() ->
 create_bucket(#{bucket := Bucket,
                 requester := OwnerId,
                 acl := Acl_} = FF) ->
-    ?LOG_DEBUG("Acl_ ~p", [Acl_]),
     Acl = riak_cs_acl:exprec_detailed(Acl_),
     BagId = maps:get(bag, FF, undefined),
     case riak_connection() of
@@ -296,7 +295,6 @@ set_bucket_acl(Bucket, #{requester := OwnerId,
 %% FieldList.policy has JSON-encoded policy from user
 -spec set_bucket_policy(binary(), term()) -> ok | {error, term()}.
 set_bucket_policy(Bucket, FieldList) ->
-    ?LOG_DEBUG("FieldList ~p", [FieldList]),
     OwnerId = proplists:get_value(requester, FieldList, <<>>),
     PolicyJson = proplists:get_value(policy, FieldList, []),
 
