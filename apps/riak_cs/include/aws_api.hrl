@@ -151,14 +151,14 @@
 -record(amz_policy, { version = <<"2008-10-17">> :: binary()  % no other value is allowed than default
                     , id = undefined :: undefined | binary()  % had better use uuid: should be UNIQUE
                     , statement = [] :: [#statement{}]
-                    , creation_time = os:timestamp(millisecond) :: non_neg_integer()
+                    , creation_time = os:system_time(millisecond) :: non_neg_integer()
          }).
 -type amz_policy() :: #amz_policy{}.
 -define(AMZ_POLICY, #amz_policy).
 
 -record(policy_v1, { arn :: arn() | undefined
                    , attachment_count :: non_neg_integer() | undefined
-                   , create_date = rts:iso8601(os:timestamp(millisecond)) :: string() | undefined
+                   , create_date = rts:iso8601(os:system_time(millisecond)) :: string() | undefined
                    , default_version_id :: string() | undefined
                    , description :: string() | undefined
                    , is_attachable :: boolean() | undefined
@@ -178,7 +178,7 @@
                               }
 ).
 -type permissions_boundary() :: #permissions_boundary{}.
--define(S3_PERMISSION_BOUNDARY, #permissions_boundary).
+-define(IAM_PERMISSION_BOUNDARY, #permissions_boundary).
 
 
 -record(tag, { key :: string()
@@ -186,7 +186,7 @@
              }
        ).
 -type tag() :: #tag{}.
--define(S3_TAG, #tag).
+-define(IAM_TAG, #tag).
 
 
 -record(role_last_used, { last_used_date :: string()
@@ -194,11 +194,11 @@
                         }
        ).
 -type role_last_used() :: #role_last_used{}.
--define(S3_ROLE_LAST_USED, #role_last_used).
+-define(IAM_ROLE_LAST_USED, #role_last_used).
 
 -record(role_v1, { arn :: arn()
                  , assume_role_policy_document :: policy()
-                 , create_date = rts:iso8601(os:timestamp(millisecond)) :: erlang:timestamp()
+                 , create_date = rts:iso8601(os:system_time(millisecond)) :: non_neg_integer()
                  , description :: string()
                  , max_session_duration :: non_neg_integer()
                  , path :: string()
@@ -210,7 +210,7 @@
                  }
        ).
 -type role() :: #role_v1{}.
--define(S3_ROLE, #role_v1).
+-define(IAM_ROLE, #role_v1).
 
 
 -define(DEFAULT_REGION, "us-east-1").

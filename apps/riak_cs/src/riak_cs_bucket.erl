@@ -716,7 +716,7 @@ handle_stanchion_response(409, ErrorDoc, Op, Bucket)
                             " Clean up the deleted buckets now.", [Bucket]),
             %% Broken, returns 500
             throw({remaining_multipart_upload_on_deleted_bucket, Bucket});
-        Other ->
+        _Other ->
             riak_cs_s3_response:error_response(ErrorDoc)
     end;
 handle_stanchion_response(_C, ErrorDoc, _M, _) ->

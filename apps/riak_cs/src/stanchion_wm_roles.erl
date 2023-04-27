@@ -19,15 +19,16 @@
 %%
 %% ---------------------------------------------------------------------
 
--module(stanchion_wm_role).
+-module(stanchion_wm_roles).
 
 -export([init/1,
          service_available/2,
          allowed_methods/2,
          is_authorized/2,
          create_path/2,
+         post_is_create/2,
          content_types_accepted/2,
-         accept_body/2
+         accept_json/2
         ]).
 
 -ignore_xref([init/1,
@@ -35,16 +36,17 @@
               allowed_methods/2,
               is_authorized/2,
               create_path/2,
+              post_is_create/2,
               content_types_accepted/2,
-              accept_body/2
+              accept_json/2
              ]).
 
 -include("stanchion.hrl").
+-include("aws_api.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 init(Config) ->
-    %% Check if authentication is disabled and
-    %% set that in the context.
     AuthBypass = proplists:get_value(auth_bypass, Config),
     {ok, #stanchion_context{auth_bypass=AuthBypass}}.
 
@@ -71,23 +73,24 @@ is_authorized(RD, Ctx=#stanchion_context{auth_bypass=AuthBypass}) ->
             end
     end.
 
+-spec post_is_create(#wm_reqdata{}, #stanchion_context{}) -> {true, #wm_reqdata{}, #stanchion_context{}}.
+post_is_create(_RD, _Ctx) ->
+    {true, _RD, _Ctx}.
+
 -spec create_path(#wm_reqdata{}, #stanchion_context{}) -> {string(), #wm_reqdata{}, #stanchion_context{}}.
 create_path(RD, Ctx) ->
     {wrq:disp_path(RD), RD, Ctx}.
 
 -spec content_types_accepted(#wm_reqdata{}, #stanchion_context{}) ->
-    {[{string(), atom()}], #wm_reqdata{}, #stanchion_context{}}.
+    {[{string(), module()}], #wm_reqdata{}, #stanchion_context{}}.
 content_types_accepted(RD, Ctx) ->
-    {[{"application/json", accept_body}], RD, Ctx}.
+    {[{"application/json", accept_json}], RD, Ctx}.
 
--spec accept_body(#wm_reqdata{}, #stanchion_context{}) ->
-                         {true | {halt, pos_integer()},
-                          #wm_reqdata{}, #stanchion_context{}}.
-accept_body(RD, Ctx) ->
-    Body = wrq:req_body(RD),
-    ParsedBody = mochijson2:decode(Body),
-    FieldList = stanchion_wm_utils:json_to_proplist(ParsedBody),
-    case stanchion_server:create_role(FieldList) of
+-spec accept_json(#wm_reqdata{}, #stanchion_context{}) ->
+          {true | {halt, pos_integer()}, #wm_reqdata{}, #stanchion_context{}}.
+accept_json(RD, Ctx) ->
+    FF = jsx:decode(wrq:req_body(RD), [{labels, atom}]),
+    case stanchion_server:create_role(FF) of
         {ok, RoleId} ->
             {true, wrq:set_resp_body(RoleId, RD), Ctx};
         {error, Reason} ->

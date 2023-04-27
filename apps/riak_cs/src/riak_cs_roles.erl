@@ -33,17 +33,21 @@
 
 -spec create_role(proplist:proplist()) -> {ok, RoleId::string()} | {error, already_exists | term()}.
 create_role(Specs) ->
-    Role = exprec:fromlist_role_v1(Specs),
-    Result = velvet:create_role("application/json",
-                                binary_to_list(riak_cs_json:to_json(Role)), []),
+    Encoded = jsx:encode(Specs),
+    {ok, AdminCreds} = riak_cs_config:admin_creds(),
+    Result = velvet:create_role(
+               "application/json",
+               Encoded,
+               [{auth_creds, AdminCreds}]),
     handle_response(Result).
 
 -spec delete_role(string()) -> ok | {error, term()}.
 delete_role(RoleId) ->
-    Result = velvet:delete_role(RoleId, []),
+    {ok, AdminCreds} = riak_cs_config:admin_creds(),
+    Result = velvet:delete_role(RoleId, [{auth_creds, AdminCreds}]),
     handle_response(Result).
 
--spec get_role(string(), pid()) -> {ok, ?S3_ROLE{}} | {error, term()}.
+-spec get_role(string(), pid()) -> {ok, ?IAM_ROLE{}} | {error, term()}.
 get_role(RoleId, RcPid) ->
     BinKey = list_to_binary(RoleId),
     case riak_cs_riak_client:get_role(RcPid, BinKey) of
@@ -65,7 +69,7 @@ from_riakc_obj(Obj) ->
                          Value /= <<>>  % tombstone
                      ],
             Role = hd(Values),
-            logger:warning("Role object '~s' has ~b siblings", [Role?S3_ROLE.role_id, N]),
+            logger:warning("Role object '~s' has ~b siblings", [Role?IAM_ROLE.role_id, N]),
             Role
     end.
 

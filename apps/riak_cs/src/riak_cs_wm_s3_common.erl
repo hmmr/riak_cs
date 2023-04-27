@@ -91,7 +91,6 @@ init(Config) ->
                           policy_module=PolicyModule,
                           exports_fun=ExportsFun,
                           stats_prefix=StatsPrefix,
-                          start_time=os:timestamp(),
                           submodule=Mod,
                           api=Api},
     resource_call(Mod, init, [Ctx], ExportsFun).

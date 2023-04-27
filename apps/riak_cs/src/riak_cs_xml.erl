@@ -25,6 +25,7 @@
 -module(riak_cs_xml).
 
 -include("riak_cs.hrl").
+-include_lib("kernel/include/logger.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -ifdef(TEST).
@@ -100,10 +101,13 @@ to_xml(?RCS_USER{}=User) ->
     user_record_to_xml(User);
 to_xml({users, Users}) ->
     user_records_to_xml(Users);
-to_xml(?S3_ROLE{}=Role) ->
+to_xml(?IAM_ROLE{}=Role) ->
     role_record_to_xml(Role);
 to_xml({roles, RR}) ->
-    role_records_to_xml(RR).
+    role_records_to_xml(RR);
+to_xml(#create_role_response{} = R) ->
+    create_role_response_to_xml(R).
+
 
 
 %% ===================================================================
@@ -111,7 +115,9 @@ to_xml({roles, RR}) ->
 %% ===================================================================
 
 export_xml(XmlDoc) ->
-    list_to_binary(xmerl:export_simple(XmlDoc, xmerl_xml, [{prolog, ?XML_PROLOG}])).
+    export_xml(XmlDoc, [{prolog, ?XML_PROLOG}]).
+export_xml(XmlDoc, Opts) ->
+    list_to_binary(xmerl:export_simple(XmlDoc, xmerl_xml, Opts)).
 
 %% @doc Convert simple form into XML.
 -spec simple_form_to_xml(simple_form()) -> iodata().
@@ -332,59 +338,77 @@ role_records_to_xml(Roles) ->
     NN = [role_node(R) || R <- Roles],
     export_xml([make_internal_node('Roles', NN)]).
 
-role_node(?S3_ROLE{arn = Arn,
-                   assume_role_policy_document = AssumeRolePolicyDocument,
-                   create_date = CreateDate,
-                   description = Description,
-                   max_session_duration = MaxSessionDuration,
-                   path = Path,
-                   permissions_boundary = PermissionsBoundary,
-                   role_id = RoleId,
-                   role_last_used = RoleLastUsed,
-                   role_name = RoleName,
-                   tags = Tags}) ->
-    C = [{'Arn', make_arn(Arn)},
-         [{'AssumeRolePolicyDocument', AssumeRolePolicyDocument} || AssumeRolePolicyDocument /= undefined],
-         {'CreateDate', CreateDate},
-         [{'Description', Description} || Description /= undefined],
-         [{'MaxSessionDuration', MaxSessionDuration} || MaxSessionDuration /= undefined],
-         {'Path', Path},
-         [{'PermissionsBoundary', make_permission_boundary(PermissionsBoundary)} || PermissionsBoundary /= undefined],
-         {'RoleId', RoleId},
-         [{'RoleLastUsed', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
-                            {'xsi:type', "RoleLastUsed"}],
-           make_role_last_used(RoleLastUsed)} || RoleLastUsed /= undefined],
-         {'RoleName', RoleName},
-         [{'Tags', make_tags(Tags)} || Tags /= undefined,
-                                       Tags /= []]
-        ],
-    {'Role', lists:flatten(C)}.
+role_node(?IAM_ROLE{arn = Arn,
+                    assume_role_policy_document = AssumeRolePolicyDocument,
+                    create_date = CreateDate,
+                    description = Description,
+                    max_session_duration = MaxSessionDuration,
+                    path = Path,
+                    permissions_boundary = PermissionsBoundary,
+                    role_id = RoleId,
+                    role_last_used = RoleLastUsed,
+                    role_name = RoleName,
+                    tags = Tags}) ->
+    C = lists:flatten(
+          [[{'Arn', make_arn(Arn)} || Arn /= undefined],
+           [{'AssumeRolePolicyDocument', AssumeRolePolicyDocument} || AssumeRolePolicyDocument /= undefined],
+           {'CreateDate', binary_to_list(CreateDate)},
+           [{'Description', Description} || Description /= undefined],
+           [{'MaxSessionDuration', list_to_integer(MaxSessionDuration)} || MaxSessionDuration /= undefined],
+           {'Path', Path},
+           [{'PermissionsBoundary', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
+                                     {'xsi:type', "PermissionsBoundary"}],
+             make_permission_boundary(PermissionsBoundary)} || PermissionsBoundary /= undefined],
+           {'RoleId', RoleId},
+           [{'RoleLastUsed', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
+                              {'xsi:type', "RoleLastUsed"}],
+             make_role_last_used(RoleLastUsed)} || RoleLastUsed /= undefined],
+           [{'RoleName', RoleName} || RoleName /= undefined],
+           [{'Tags', make_tags(Tags)} || Tags /= undefined,
+                                         Tags /= []]
+          ]),
+    {'Role', [make_external_node(K, V) || {K, V} <- C]}.
 
+make_arn(BareArn) when is_list(BareArn) ->
+    BareArn;
 make_arn(?S3_ARN{provider = Provider,
                  service = Service,
                  region = Region,
                  id = Id,
                  path = Path}) ->
-    iolist_to_binary([Provider, Service, Region, Id, Path]).
+    lists:flatten([Provider, Service, Region, Id, Path]).
 
-make_role_last_used(?S3_ROLE_LAST_USED{last_used_date = LastUsedDate,
-                                       region = Region}) ->
+make_role_last_used(?IAM_ROLE_LAST_USED{last_used_date = LastUsedDate,
+                                        region = Region}) ->
     [{'LastUsedDate', LastUsedDate} || LastUsedDate =/= undefined ]
         ++ [{'Region', Region} || Region =/= undefined].
 
-make_permission_boundary(?S3_PERMISSION_BOUNDARY{permissions_boundary_arn = PermissionsBoundaryArn,
-                                                 permissions_boundary_type = PermissionsBoundaryType}) ->
-    C =[[{'PermissionsBoundaryArn', make_arn(PermissionsBoundaryArn)} || PermissionsBoundaryArn /= undefined],
-        [{'PermissionsBoundaryType', PermissionsBoundaryType} || PermissionsBoundaryType /= undefined]
-       ],
-    {'PermissionsBoundary', lists:flatten(C)}.
+make_permission_boundary(BareArn) when is_list(BareArn);
+                                       is_binary(BareArn) ->
+    make_permission_boundary(?IAM_PERMISSION_BOUNDARY{permissions_boundary_arn = BareArn,
+                                                      permissions_boundary_type = "Policy"});
+make_permission_boundary(?IAM_PERMISSION_BOUNDARY{permissions_boundary_arn = PermissionsBoundaryArn,
+                                                  permissions_boundary_type = PermissionsBoundaryType}) ->
+    C = [{'PermissionsBoundaryArn', make_arn(PermissionsBoundaryArn)},
+         {'PermissionsBoundaryType', PermissionsBoundaryType}
+        ],
+    C.
 
 make_tags(TT) ->
     [make_tag(T) || T <- TT].
-make_tag(?S3_TAG{key = Key,
-                 value = Value}) ->
-    [{'Key', Key}, {'Value', Value}].
+make_tag(?IAM_TAG{key = Key,
+                  value = Value}) ->
+    [{'Key', [Key]}, {'Value', [Value]}].
 
+
+create_role_response_to_xml(#create_role_response{role = Role, request_id = RequestId}) ->
+    CreateRoleResult = role_node(Role),
+    ResponseMetadata = make_internal_node('RequestId', [RequestId]),
+    C = [{'CreateRoleResult', [CreateRoleResult]},
+         {'ResponseMetadata', [ResponseMetadata]}],
+    export_xml([make_internal_node('CreateRoleResponse',
+                                   [{'xmlns', ?IAM_XMLNS}],
+                                   C)], []).
 
 
 make_internal_node(Name, Content) ->

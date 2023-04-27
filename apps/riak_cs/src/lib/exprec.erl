@@ -99,6 +99,8 @@
         , policy_v1
         , statement
         , tag
+        , role_last_used
+        , permissions_boundary
         , role_v1
         ]
        ).

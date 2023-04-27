@@ -39,6 +39,7 @@
          resp_body/2,
          multiple_choices/2,
          accept_body/2,
+         accept_wwwform/2,
          produce_body/2,
          allowed_methods/2,
          delete_resource/2,
@@ -88,7 +89,6 @@ init(Config) ->
                            response_module = RespModule,
                            exports_fun = ExportsFun,
                            stats_prefix = StatsPrefix,
-                           start_time = os:system_time(millisecond),
                            submodule = Mod,
                            api = Api},
     resource_call(Mod, init, [Ctx], ExportsFun).
@@ -315,6 +315,20 @@ accept_body(RD, #rcs_iam_context{submodule = Mod,
     riak_cs_dtrace:dt_wm_return({?MODULE, Mod}, <<"accept_body">>, [], [riak_cs_wm_utils:extract_name(User)]),
     Res.
 
+-spec accept_wwwform(#wm_reqdata{}, #rcs_iam_context{}) ->
+          {boolean() | {'halt', non_neg_integer()}, #wm_reqdata{}, #rcs_iam_context{}}.
+accept_wwwform(RD, #rcs_iam_context{submodule = Mod,
+                                    exports_fun = ExportsFun,
+                                    user = User} = Ctx) ->
+    riak_cs_dtrace:dt_wm_entry({?MODULE, Mod}, <<"accept_wwwform">>),
+    Res = resource_call(Mod,
+                        accept_wwwform,
+                        [RD, Ctx],
+                        ExportsFun),
+    %% TODO: extract response code and add to ints field
+    riak_cs_dtrace:dt_wm_return({?MODULE, Mod}, <<"accept_wwwform">>, [], [riak_cs_wm_utils:extract_name(User)]),
+    Res.
+
 -spec produce_body(#wm_reqdata{}, #rcs_iam_context{}) ->
           {iolist()|binary(), #wm_reqdata{}, #rcs_iam_context{}} |
           {{known_length_stream, non_neg_integer(), {<<>>, function()}}, #wm_reqdata{}, #rcs_iam_context{}}.
@@ -401,7 +415,6 @@ authenticate(User, _UserObj, _RD, _Ctx, _AuthData)
     %% {ok, _} -> %% disabled account, we are going to 403
     {error, bad_auth}.
 
--spec exports_fun(orddict:orddict()) -> function().
 exports_fun(Exports) ->
     fun(Function) ->
             orddict:is_key(Function, Exports)

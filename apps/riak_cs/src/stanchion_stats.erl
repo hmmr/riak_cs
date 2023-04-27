@@ -49,6 +49,9 @@ duration_metrics() ->
      [user, create],
      [user, update],
 
+     [role, create],
+     [role, delete],
+
      %% Riak PB client, per key operations
      [riakc, get_cs_bucket],
      [riakc, put_cs_bucket], %% Always strong put

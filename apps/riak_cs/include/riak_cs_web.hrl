@@ -27,7 +27,7 @@
 
 -type api() :: s3 | oos.
 
--record(rcs_s3_context, {start_time :: undefined | erlang:timestamp(),
+-record(rcs_s3_context, {start_time =  os:system_time(millisecond) :: non_neg_integer(),
                          auth_bypass :: atom(),
                          user :: undefined | moss_user(),
                          user_object :: undefined | riakc_obj:riakc_obj(),
@@ -59,7 +59,7 @@
                          api :: atom()
                         }).
 
--record(rcs_iam_context, {start_time :: undefined | erlang:timestamp(),
+-record(rcs_iam_context, {start_time = os:system_time(millisecond) :: non_neg_integer(),
                           auth_bypass :: atom(),
                           user :: undefined | moss_user(),
                           role :: undefined | role(),
@@ -280,6 +280,12 @@
 
 
 %% === roles ===
+
+-record(create_role_response,
+        {
+         role :: role(),
+         request_id :: string()
+        }).
 
 -record(list_roles_response,
         {

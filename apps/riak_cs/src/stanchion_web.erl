@@ -40,7 +40,7 @@ dispatch_table() ->
      {["buckets", bucket], stanchion_wm_bucket, [{auth_bypass, AuthBypass}]},
      {["users", key_id], stanchion_wm_user, [{auth_bypass, AuthBypass}]},
      {["users"], stanchion_wm_users, [{auth_bypass, AuthBypass}]},
-     {["roles", role_id], stanchion_wm_role, [{auth_bypass, AuthBypass}]},
+     {["roles", role_id], stanchion_wm_roles, [{auth_bypass, AuthBypass}]},
      {["roles"], stanchion_wm_roles, [{auth_bypass, AuthBypass}]},
      {["stats"], stanchion_wm_stats, [{auth_bypass, AuthBypass}]}
     ].

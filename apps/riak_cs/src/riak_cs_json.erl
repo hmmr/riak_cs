@@ -86,7 +86,7 @@ to_json(?RCS_USER{} = A) ->
                                 {acl_v3, record_info(fields, acl_v3)}]}]);
 to_json({users, AA}) ->
     jason:encode(AA, [{records, [{rcs_user_v2, record_info(fields, rcs_user_v2)}]}]);
-to_json(?S3_ROLE{} = A) ->
+to_json(?IAM_ROLE{} = A) ->
     jason:encode(A, [{records, [{role_v1, record_info(fields, role_v1)},
                                 {policy_v1, record_info(fields, policy_v1)},
                                 {arn_v1, record_info(fields, arn_v1)},

@@ -41,14 +41,14 @@ object_api_dispatch_table() ->
     base_resources() ++
         one_three_resources(riak_cs_config:cs_version()).
 
--spec props(atom()) -> [term()].
+-spec props(atom()) -> proplists:proplist().
 props(Mod) ->
     [{auth_bypass, riak_cs_config:auth_bypass()},
      {auth_module, riak_cs_config:auth_module()},
      {policy_module, riak_cs_config:policy_module()},
      {submodule, Mod}].
 
--spec stats_props() -> [term()].
+-spec stats_props() -> proplists:proplist().
 stats_props() ->
     [{admin_auth_enabled, riak_cs_config:admin_auth_enabled()},
      {auth_bypass, riak_cs_config:auth_bypass()}].

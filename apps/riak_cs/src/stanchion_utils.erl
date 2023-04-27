@@ -179,9 +179,10 @@ delete_bucket(Bucket, OwnerId) ->
             Error
     end.
 
--spec create_role(proplists:proplist()) -> ok | {error, riak_connect_failed() | term()}.
+-spec create_role(proplists:proplist()) -> {ok, string()} | {error, riak_connect_failed() | term()}.
 create_role(Fields) ->
-    Role = exprec:fromlist_role_v1(Fields),
+    Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:frommap_role_v1(Fields),
+    Role = Role_?IAM_ROLE{assume_role_policy_document = base64:decode(A)},
     case riak_connection() of
         {ok, RiakPid} ->
             try
@@ -831,16 +832,16 @@ role_from_riakc_obj(Obj) ->
     end.
 
 
--spec save_role(role(), pid()) -> ok | {error, term()}.
+-spec save_role(role(), pid()) -> {ok, string()} | {error, term()}.
 save_role(Role0, RiakPid) ->
     RoleId = ensure_unique_role_id(RiakPid),
 
     ?LOG_INFO("Saving new role with id ~s", [RoleId]),
-    Role1 = Role0?S3_ROLE{role_id = RoleId},
+    Role1 = Role0?IAM_ROLE{role_id = RoleId},
 
-    Indexes = [{?ROLE_NAME_INDEX, Role1?S3_ROLE.role_name},
-               {?ROLE_ID_INDEX, Role1?S3_ROLE.role_id},
-               {?ROLE_PATH_INDEX, Role1?S3_ROLE.path}
+    Indexes = [{?ROLE_NAME_INDEX, Role1?IAM_ROLE.role_name},
+               {?ROLE_ID_INDEX, Role1?IAM_ROLE.role_id},
+               {?ROLE_PATH_INDEX, Role1?IAM_ROLE.path}
               ],
     Meta = dict:store(?MD_INDEX, Indexes, dict:new()),
     Obj = riakc_obj:update_metadata(
@@ -882,7 +883,7 @@ make_role_id() ->
 fill(0, Q) ->
     Q;
 fill(N, Q) ->
-    fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)))]).
+    fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)), ?ROLE_ID_CHARSET)]).
 
 
 %% @doc Perform an initial read attempt with R=PR=N.

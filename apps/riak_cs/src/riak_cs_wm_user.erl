@@ -127,7 +127,7 @@ create_path(RD, Ctx) -> {"/riak-cs/user", RD, Ctx}.
 
 -spec accept_json(#wm_reqdata{}, #rcs_s3_context{}) ->
     {boolean() | {halt, term()}, term(), term()}.
-accept_json(RD, Ctx=#rcs_s3_context{user=undefined}) ->
+accept_json(RD, Ctx=#rcs_s3_context{user = undefined}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_json">>),
     FF = jsx:decode(wrq:req_body(RD), [{labels, atom}]),
     Res = riak_cs_user:create_user(maps:get(name, FF, <<>>),

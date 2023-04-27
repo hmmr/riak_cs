@@ -161,7 +161,7 @@ accept_body(RD, Ctx=#rcs_s3_context{user=User,
 
 %% @doc Callback for deleting a bucket.
 -spec delete_resource(#wm_reqdata{}, #rcs_s3_context{}) ->
-                             {boolean() | {'halt', term()}, #wm_reqdata{}, #rcs_s3_context{}}.
+          {boolean() | {'halt', term()}, #wm_reqdata{}, #rcs_s3_context{}}.
 delete_resource(RD, Ctx=#rcs_s3_context{user=User,
                                         user_object=UserObj,
                                         response_module=ResponseMod,

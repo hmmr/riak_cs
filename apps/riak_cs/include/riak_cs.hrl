@@ -47,6 +47,7 @@
 
 -define(XML_PROLOG, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>").
 -define(S3_XMLNS, "http://s3.amazonaws.com/doc/2006-03-01/").
+-define(IAM_XMLNS, "https://iam.amazonaws.com/doc/2010-05-08/").
 
 -define(USER_BUCKET, <<"moss.users">>).
 -define(ACCESS_BUCKET, <<"moss.access">>).

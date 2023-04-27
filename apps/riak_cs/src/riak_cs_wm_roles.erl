@@ -59,56 +59,60 @@
 %% Webmachine callbacks
 %% -------------------------------------------------------------------
 
--spec service_available(#wm_reqdata{}, #rcs_iam_context{}) -> {true, #wm_reqdata{}, #rcs_iam_context{}}.
+-spec service_available(#wm_reqdata{}, #rcs_iam_context{}) ->
+          {boolean(), #wm_reqdata{}, #rcs_iam_context{}}.
 service_available(RD, Ctx) ->
-    ?LOG_DEBUG("are we service_available?", []),
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"service_available">>),
     riak_cs_wm_utils:service_available(RD, Ctx).
 
 -spec allowed_methods(#wm_reqdata{}, #rcs_iam_context{}) -> [atom()].
 allowed_methods(_RD, _Ctx) ->
-    ?LOG_DEBUG("Are we even here?", []),
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"allowed_methods">>),
     ['GET', 'HEAD', 'POST'].
 
 -spec content_types_accepted(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
+          {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_accepted(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_accepted">>),
     {[{?WWWFORM_TYPE, accept_wwwform}, {?XML_TYPE, accept_xml}], RD, Ctx}.
 
 -spec content_types_provided(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
+          {[{string(), module()}], #wm_reqdata{}, #rcs_iam_context{}}.
 content_types_provided(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"content_types_provided">>),
     {[{?XML_TYPE, produce_xml}, {?JSON_TYPE, produce_json}], RD, Ctx}.
 
 
 -spec authorize(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_iam_context{}}.
+          {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_iam_context{}}.
 authorize(RD, Ctx) ->
     Method = wrq:method(RD),
     riak_cs_wm_utils:role_access_authorize_helper(Method, RD, Ctx).
 
 
-post_is_create(RD, Ctx) -> {true, RD, Ctx}.
+-spec post_is_create(#wm_reqdata{}, #rcs_iam_context{}) ->
+          {true, #wm_reqdata{}, #rcs_iam_context{}}.
+post_is_create(RD, Ctx) ->
+    {true, RD, Ctx}.
 
+-spec create_path(#wm_reqdata{}, #rcs_iam_context{}) ->
+          {string(), #wm_reqdata{}, #rcs_iam_context{}}.
 create_path(RD, Ctx) ->
     {wrq:disp_path(RD), RD, Ctx}.
 
 -spec accept_wwwform(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {boolean() | {halt, term()}, term(), term()}.
+          {boolean() | {halt, term()}, term(), term()}.
 accept_wwwform(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_wwwform">>),
-    ?LOG_DEBUG("Body form ~p", [wrq:req_body(RD)]),
+    ParsedForm = mochiweb_util:parse_qs(wrq:req_body(RD)),
     Specs =
-        lists:foldl(fun role_json_filter/2, [], riak_cs_json:from_json(wrq:req_body(RD))),
+        lists:foldl(fun role_json_filter/2, [], ParsedForm),
     role_response(
       riak_cs_roles:create_role(Specs),
-      ?JSON_TYPE, RD, Ctx).
+      ?XML_TYPE, Specs, RD, Ctx).
 
 -spec accept_xml(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_iam_context{}}.
+          {boolean() | {halt, term()}, #wm_reqdata{}, #rcs_iam_context{}}.
 accept_xml(RD, Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"accept_xml">>),
     case riak_cs_xml:scan(binary_to_list(wrq:req_body(RD))) of
@@ -119,11 +123,11 @@ accept_xml(RD, Ctx) ->
                 lists:foldl(fun role_xml_filter/2, [], ParsedData#xmlElement.content),
             role_response(
               riak_cs_roles:create_role(Specs),
-              ?XML_TYPE, RD, Ctx)
+              ?XML_TYPE, Specs, RD, Ctx)
     end.
 
 -spec produce_json(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {string(), #wm_reqdata{}, #rcs_iam_context{}}.
+          {string(), #wm_reqdata{}, #rcs_iam_context{}}.
 produce_json(RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_json">>),
     RoleId = list_to_binary(wrq:path_info(role, RD)),
@@ -134,7 +138,7 @@ produce_json(RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
     {Body, RD2, Ctx}.
 
 -spec produce_xml(#wm_reqdata{}, #rcs_iam_context{}) ->
-    {string(), #wm_reqdata{}, #rcs_iam_context{}}.
+          {string(), #wm_reqdata{}, #rcs_iam_context{}}.
 produce_xml(RD, #rcs_iam_context{riak_client = RcPid}=Ctx) ->
     riak_cs_dtrace:dt_wm_entry(?MODULE, <<"produce_xml">>),
     RoleId = list_to_binary(wrq:path_info(role, RD)),
@@ -163,20 +167,20 @@ etag(Body) ->
 
 role_json_filter({ItemKey, ItemValue}, Acc) ->
     case ItemKey of
-        <<"AssumeRolePolicyDocument">> ->
-            [{assume_role_policy_document, ItemValue} | Acc];
-        <<"Description">> ->
+        "AssumeRolePolicyDocument" ->
+            [{assume_role_policy_document, base64:encode(ItemValue)} | Acc];
+        "Description" ->
             [{description, ItemValue} | Acc];
-        <<"MaxSessionDuration">> ->
+        "MaxSessionDuration" ->
             [{max_session_duration, ItemValue} | Acc];
-        <<"Path">> ->
+        "Path" ->
             [{path, ItemValue} | Acc];
-        <<"PermissionsBoundary">> ->
-            [{path, ItemValue} | Acc];
-        <<"RoleName">> ->
-            [{path, ItemValue} | Acc];
-        <<"Tags">> ->
-            [{path, ItemValue} | Acc];
+        "PermissionsBoundary" ->
+            [{permissions_boundary, ItemValue} | Acc];
+        "RoleName" ->
+            [{role_name, ItemValue} | Acc];
+        "Tags" ->
+            [{tags, ItemValue} | Acc];
         _ ->
             Acc
     end.
@@ -214,16 +218,22 @@ maybe_extract_tag_to_acc(E, Tag, Acc) ->
     ?LOG_DEBUG("STUB pretend adding tag ~p from element ~p", [Tag, E]),
     Acc.
 
-role_response({ok, Role}, ContentType, RD, Ctx) ->
+role_response({ok, RoleId}, ContentType, Specs, RD, Ctx) ->
+    Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:fromlist_role_v1(Specs),
+    Role = Role_?IAM_ROLE{assume_role_policy_document = binary_to_list(base64:decode(A)),
+                          role_id = RoleId},
     Doc = format_role_record(Role, ContentType),
     WrittenRD =
-        wrq:set_resp_body(Doc,
-                          wrq:set_resp_header("Content-Type", ContentType, RD)),
+        wrq:set_resp_body(
+          Doc, wrq:set_resp_header("Content-Type", ?XML_TYPE, RD)),
     {true, WrittenRD, Ctx};
-role_response({error, Reason}, _, RD, Ctx) ->
+role_response({error, Reason}, _, _, RD, Ctx) ->
     riak_cs_s3_response:api_error(Reason, RD, Ctx).
 
 format_role_record(Role, ?JSON_TYPE) ->
     riak_cs_json:to_json(Role);
 format_role_record(Role, ?XML_TYPE) ->
-    riak_cs_xml:to_xml(Role).
+    RequestId = uuid:uuid_to_string(uuid:get_v4()),
+    logger:info("Created role \"~s\" on request_id ~s", [Role?IAM_ROLE.role_id, RequestId]),
+    riak_cs_xml:to_xml(#create_role_response{role = Role,
+                                             request_id = RequestId}).
