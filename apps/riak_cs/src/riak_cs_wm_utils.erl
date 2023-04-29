@@ -69,7 +69,8 @@
          check_timeskew/1,
          content_length/1,
          valid_entity_length/3,
-         role_access_authorize_helper/3
+         role_access_authorize_helper/2,
+         eval_role_for_action/2
         ]).
 
 -include("riak_cs.hrl").
@@ -1123,12 +1124,17 @@ valid_entity_length(MaxLen, RD, #rcs_s3_context{response_module=ResponseMod,
     end.
 
 
--spec role_access_authorize_helper(atom(), #wm_reqdata{}, #rcs_s3_context{}) ->
+-spec role_access_authorize_helper(#wm_reqdata{}, #rcs_s3_context{}) ->
           authorized_response().
-role_access_authorize_helper(_Method, RD, Ctx) ->
+role_access_authorize_helper(RD, Ctx) ->
     logger:debug("STUB role_access_authorize_helper, returning false"),
     {false, RD, Ctx}.
 
+-spec eval_role_for_action(#wm_reqdata{}, #rcs_s3_context{}) ->
+          boolean().
+eval_role_for_action(_RD, _Role) ->
+    ?LOG_DEBUG("STUB eval_role_for_action"),
+    true.
 %% ===================================================================
 %% Internal functions
 %% ===================================================================

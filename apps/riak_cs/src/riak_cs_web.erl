@@ -84,9 +84,8 @@ base_resources() ->
      {["buckets", bucket, "objects", object, "versions", versionId, "uploads", uploadId], riak_cs_wm_s3_common, props(riak_cs_wm_object_upload_part)},
      {["buckets", bucket, "objects", object, "versions", versionId, "uploads"], riak_cs_wm_s3_common, props(riak_cs_wm_object_upload)},
      {["buckets", bucket, "objects", object, "versions", versionId, "acl"], riak_cs_wm_s3_common, props(riak_cs_wm_object_acl)},
-     %% Roles
-     {["roles"], riak_cs_wm_iam_common, props(riak_cs_wm_roles)},
-     {["roles", role], riak_cs_wm_iam_common, props(riak_cs_wm_roles)}
+     %% IAM catch-all
+     {["iam"], riak_cs_wm_iam, props(no_submodule)}
     ].
 
 -spec one_three_resources(undefined | pos_integer()) -> [dispatch_rule()].

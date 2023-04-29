@@ -28,7 +28,7 @@
          create_role/1,
          create_user/1,
          delete_bucket/2,
-         delete_role/2,
+         delete_role/1,
          get_admin_creds/0,
          get_manifests_raw/4,
          get_pbc/0,
@@ -833,19 +833,20 @@ role_from_riakc_obj(Obj) ->
 
 
 -spec save_role(role(), pid()) -> {ok, string()} | {error, term()}.
-save_role(Role0, RiakPid) ->
+save_role(Role0 = ?IAM_ROLE{role_name = RoleName,
+                            path = Path}, RiakPid) ->
     RoleId = ensure_unique_role_id(RiakPid),
 
-    ?LOG_INFO("Saving new role with id ~s", [RoleId]),
+    ?LOG_INFO("Saving new role \"~s\" with id ~s", [RoleId]),
     Role1 = Role0?IAM_ROLE{role_id = RoleId},
 
-    Indexes = [{?ROLE_NAME_INDEX, Role1?IAM_ROLE.role_name},
-               {?ROLE_ID_INDEX, Role1?IAM_ROLE.role_id},
-               {?ROLE_PATH_INDEX, Role1?IAM_ROLE.path}
+    Indexes = [{?ROLE_NAME_INDEX, RoleName},
+               {?ROLE_ID_INDEX, RoleId},
+               {?ROLE_PATH_INDEX, Path}
               ],
     Meta = dict:store(?MD_INDEX, Indexes, dict:new()),
     Obj = riakc_obj:update_metadata(
-            riakc_obj:new(?IAM_BUCKET, iolist_to_binary(RoleId), term_to_binary(Role1)),
+            riakc_obj:new(?IAM_BUCKET, iolist_to_binary(RoleName), term_to_binary(Role1)),
             Meta),
     {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:put(RiakPid, Obj)),
     case Res of
@@ -854,18 +855,6 @@ save_role(Role0, RiakPid) ->
             {ok, RoleId};
         {error, Reason} ->
             logger:error("Failed to save role \"~s\": ~p", [Reason]),
-            Res
-    end.
-
--spec delete_role(string(), pid()) -> ok.
-delete_role(RoleId, RiakPid) ->
-    Obj = riakc_obj:new(?IAM_BUCKET, iolist_to_binary(RoleId), ?FREE_ROLE_MARKER),
-    {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:put(RiakPid, Obj)),
-    case Res of
-        ok ->
-            stanchion_stats:update([riakc, put_cs_role], TAT);
-        {error, Reason} ->
-            logger:error("Failed to save deleted role \"~s\": ~p", [Reason]),
             Res
     end.
 
@@ -884,6 +873,29 @@ fill(0, Q) ->
     Q;
 fill(N, Q) ->
     fill(N-1, Q ++ [lists:nth(rand:uniform(length(?ROLE_ID_CHARSET)), ?ROLE_ID_CHARSET)]).
+
+
+-spec delete_role(string()) -> ok.
+delete_role(RoleName) ->
+    case riak_connection() of
+        {ok, RiakPid} ->
+            try
+                Obj = riakc_obj:new(?IAM_BUCKET, iolist_to_binary(RoleName), ?FREE_ROLE_MARKER),
+                {Res, TAT} = ?TURNAROUND_TIME(riakc_pb_socket:put(RiakPid, Obj)),
+                case Res of
+                    ok ->
+                        stanchion_stats:update([riakc, put_cs_role], TAT);
+                    {error, Reason} ->
+                        logger:error("Failed to save deleted role object \"~s\": ~p", [Reason]),
+                        Res
+                end
+            after
+                close_riak_connection(RiakPid)
+            end;
+        {error, _} = Else ->
+            Else
+    end.
+
 
 
 %% @doc Perform an initial read attempt with R=PR=N.

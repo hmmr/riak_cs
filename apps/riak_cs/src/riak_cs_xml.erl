@@ -106,7 +106,9 @@ to_xml(?IAM_ROLE{}=Role) ->
 to_xml({roles, RR}) ->
     role_records_to_xml(RR);
 to_xml(#create_role_response{} = R) ->
-    create_role_response_to_xml(R).
+    create_role_response_to_xml(R);
+to_xml(#get_role_response{} = R) ->
+    get_role_response_to_xml(R).
 
 
 
@@ -407,6 +409,16 @@ create_role_response_to_xml(#create_role_response{role = Role, request_id = Requ
     C = [{'CreateRoleResult', [CreateRoleResult]},
          {'ResponseMetadata', [ResponseMetadata]}],
     export_xml([make_internal_node('CreateRoleResponse',
+                                   [{'xmlns', ?IAM_XMLNS}],
+                                   C)], []).
+
+
+get_role_response_to_xml(#get_role_response{role = Role, request_id = RequestId}) ->
+    GetRoleResult = role_node(Role),
+    ResponseMetadata = make_internal_node('RequestId', [RequestId]),
+    C = [{'GetRoleResult', [GetRoleResult]},
+         {'ResponseMetadata', [ResponseMetadata]}],
+    export_xml([make_internal_node('GetRoleResponse',
                                    [{'xmlns', ?IAM_XMLNS}],
                                    C)], []).
 

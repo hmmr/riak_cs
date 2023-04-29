@@ -23,7 +23,7 @@
 -export([create_role/1,
          delete_role/1,
          get_role/2,
-         list_roles/0
+         list_roles/1
         ]).
 
 -include("riak_cs.hrl").
@@ -48,8 +48,8 @@ delete_role(RoleId) ->
     handle_response(Result).
 
 -spec get_role(string(), pid()) -> {ok, ?IAM_ROLE{}} | {error, term()}.
-get_role(RoleId, RcPid) ->
-    BinKey = list_to_binary(RoleId),
+get_role(RoleName, RcPid) ->
+    BinKey = list_to_binary(RoleName),
     case riak_cs_riak_client:get_role(RcPid, BinKey) of
         {ok, Obj} ->
             {ok, from_riakc_obj(Obj)};
@@ -69,11 +69,12 @@ from_riakc_obj(Obj) ->
                          Value /= <<>>  % tombstone
                      ],
             Role = hd(Values),
-            logger:warning("Role object '~s' has ~b siblings", [Role?IAM_ROLE.role_id, N]),
+            logger:warning("Role object (RoleId: ~s, RoleName: \"~s\") has ~b siblings",
+                           [Role?IAM_ROLE.role_id, Role?IAM_ROLE.role_name, N]),
             Role
     end.
 
-list_roles() ->
+list_roles(_RcPid) ->
     logger:debug("STUB list_roles", []).
 
 

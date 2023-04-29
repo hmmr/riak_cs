@@ -148,7 +148,7 @@ parse_auth_header(_) ->
 calculate_sts(RD) ->
     Headers = riak_cs_wm_utils:normalize_headers(RD),
     AmazonHeaders = riak_cs_wm_utils:extract_amazon_headers(Headers),
-    OriginalResource = riak_cs_s3_rewrite:original_resource(RD),
+    OriginalResource = riak_cs_aws_rewrite:original_resource(RD),
     Resource = case OriginalResource of
         undefined -> []; %% TODO: get noisy here?
         {Path,QS} -> [Path, canonicalize_qs(lists:sort(QS))]

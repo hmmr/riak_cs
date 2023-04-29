@@ -169,7 +169,7 @@ process_post(RD, Ctx = #rcs_s3_context{riak_client = RcPid,
     end.
 
 response_location(Bucket, Key) ->
-    iolist_to_binary(["http://", Bucket, ".", riak_cs_config:root_host(), "/", Key]).
+    iolist_to_binary(["http://", Bucket, ".", riak_cs_config:s3_root_host(), "/", Key]).
 
 -spec valid_entity_length(#wm_reqdata{}, #rcs_s3_context{}) -> {boolean(), #wm_reqdata{}, #rcs_s3_context{}}.
 valid_entity_length(RD, Ctx) ->

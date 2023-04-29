@@ -57,25 +57,10 @@ rewrite_path_and_headers(Method, Headers, Url, Path, QueryString) ->
     {RewrittenHeaders, RewrittenPath}.
 
 
+%% All IAM requests appear to be POSTs without a resource
+%% path. Instead of attempting to rewrite path and map those POSTs to
+%% something we may deem more logical, let's just skip rewriting
+%% altogether. In riak_cs_wm_iam.erl, we read the www-form and handle
+%% the request based on presented Action.
 rewrite_path(_Method, "/", _QS) ->
-    "/roles".
-%% rewrite_path(Method, "/", QS) ->
-%%     Action = proplists:get_value("Action", mochiweb_util:parse_qs(QS)),
-%%     case lists:member(Action, supported_actions(Method)) of
-%%         true ->
-%%             "/roles";
-%%         false when Action =:= undefined ->
-%%             logger:warning("No 'Action' parameter in IAM request", []),
-%%             "/";
-%%         false ->
-%%             logger:warning("Unsupported action (~s) in IAM request", [Action])
-%%     end.
-
-%% supported_actions('GET') ->
-%%     ["GetRole", "ListRoles"];
-%% supported_actions('POST') ->
-%%     ["CreateRole"];
-%% supported_actions('DELETE') ->
-%%     ["DeleteRole"];
-%% supported_actions(_) ->
-%%     [].
+    "/iam".

@@ -66,8 +66,6 @@
                           riak_client :: undefined | pid(),
                           rc_pool :: atom(),    % pool name which riak_client belongs to
                           auto_rc_close = true :: boolean(),
-                          exports_fun :: undefined | function(),
-                          submodule :: module(),
                           auth_module :: module(),
                           response_module :: module(),
                           stats_prefix = no_stats :: atom(),
@@ -282,6 +280,12 @@
 %% === roles ===
 
 -record(create_role_response,
+        {
+         role :: role(),
+         request_id :: string()
+        }).
+
+-record(get_role_response,
         {
          role :: role(),
          request_id :: string()

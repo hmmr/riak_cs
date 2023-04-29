@@ -167,7 +167,7 @@ parse_auth_v4_header([KV | KVs], UserId, Acc) ->
 calculate_signature_v2(KeyData, RD, Quirk) ->
     Headers = riak_cs_wm_utils:normalize_headers(RD),
     AmazonHeaders = riak_cs_wm_utils:extract_amazon_headers(Headers),
-    OriginalResource = riak_cs_s3_rewrite:original_resource(RD),
+    OriginalResource = riak_cs_aws_rewrite:original_resource(RD),
     Resource = case OriginalResource of
                    undefined ->
                        logger:warning("Empty OriginalResource in RD ~p", [RD]),
