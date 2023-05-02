@@ -215,4 +215,8 @@
 
 -define(DEFAULT_REGION, "us-east-1").
 
+-define(AUTH_USERS_GROUP, "http://acs.amazonaws.com/groups/global/AuthenticatedUsers").
+-define(ALL_USERS_GROUP, "http://acs.amazonaws.com/groups/global/AllUsers").
+-define(LOG_DELIVERY_GROUP, "http://acs.amazonaws.com/groups/s3/LogDelivery").
+
 -endif.

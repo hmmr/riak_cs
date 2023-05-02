@@ -108,7 +108,8 @@ valid_entity_length(RD, Ctx) ->
     {true, RD, Ctx}.
 
 
--spec forbidden(#wm_reqdata{}, #rcs_iam_context{}) -> {boolean() | {halt, non_neg_integer()}, #wm_reqdata{}, #rcs_iam_context{}}.
+-spec forbidden(#wm_reqdata{}, #rcs_iam_context{}) ->
+          {boolean() | {halt, non_neg_integer()}, #wm_reqdata{}, #rcs_iam_context{}}.
 forbidden(RD, Ctx=#rcs_iam_context{auth_module = AuthMod,
                                    riak_client = RcPid}) ->
     ?LOG_DEBUG("initingg", []),
@@ -231,39 +232,41 @@ accept_wwwform(RD, Ctx) ->
     Action = proplists:get_value("Action", Form),
     do_action(Action, Form, RD, Ctx).
 
-do_action("CreateRole", Form, RD, Ctx) ->
-    Specs = lists:foldl(fun role_fields_filter/2, [], Form),
-    create_role_response(
-      riak_cs_roles:create_role(Specs),
-      Specs, RD, Ctx);
-do_action("GetRole", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
-    RoleName = proplists:get_value("RoleName", Form),
-    get_role_response(
-      riak_cs_roles:get_role(RoleName, RcPid),
-      RD, Ctx);
-do_action(Unsupported, _Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
-    logger:warning("IAM action ~s not supported yet; ignoring request", [Unsupported]),
-    ResponseMod:api_error(unsupported_iam_action, RD, Ctx).
-
-
-
-
+-spec finish_request(#wm_reqdata{}, #rcs_iam_context{}) ->
+          {boolean() | {halt, term()}, term(), term()}.
 finish_request(RD, Ctx=#rcs_iam_context{riak_client = undefined}) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"finish_request">>, [0], []),
     {true, RD, Ctx};
 finish_request(RD, Ctx=#rcs_iam_context{riak_client=RcPid}) ->
-    riak_cs_dtrace:dt_wm_entry(?MODULE, <<"finish_request">>, [1], []),
     riak_cs_riak_client:checkin(RcPid),
-    riak_cs_dtrace:dt_wm_return(?MODULE, <<"finish_request">>, [1], []),
     {true, RD, Ctx#rcs_iam_context{riak_client = undefined}}.
+
 
 %% -------------------------------------------------------------------
 %% Internal functions
 %% -------------------------------------------------------------------
 
-%% @doc Calculate the etag of a response body
-etag(Body) ->
-        riak_cs_utils:etag_from_binary(riak_cs_utils:md5(Body)).
+do_action("CreateRole", Form, RD, Ctx) ->
+    Specs = lists:foldl(fun role_fields_filter/2, [], Form),
+    make_create_role_response(
+      riak_cs_roles:create_role(Specs),
+      Specs, RD, Ctx);
+
+do_action("GetRole", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
+    RoleName = proplists:get_value("RoleName", Form),
+    make_get_role_response(
+      riak_cs_roles:get_role(RoleName, RcPid),
+      RD, Ctx);
+
+do_action("ListRoles", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
+    PathPrefix = proplists:get_value("PathPrefix", Form),
+    make_list_roles_response(
+      riak_cs_api:list_roles(RcPid, ?LRREQ{path_prefix = PathPrefix}),
+      RD, Ctx);
+
+do_action(Unsupported, _Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
+    logger:warning("IAM action ~s not supported yet; ignoring request", [Unsupported]),
+    ResponseMod:api_error(unsupported_iam_action, RD, Ctx).
+
 
 role_fields_filter({ItemKey, ItemValue}, Acc) ->
     case ItemKey of
@@ -285,7 +288,8 @@ role_fields_filter({ItemKey, ItemValue}, Acc) ->
             Acc
     end.
 
-create_role_response({ok, RoleId}, Specs, RD, Ctx) ->
+
+make_create_role_response({ok, RoleId}, Specs, RD, Ctx) ->
     Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:fromlist_role_v1(Specs),
     Role = Role_?IAM_ROLE{assume_role_policy_document = binary_to_list(base64:decode(A)),
                           role_id = RoleId},
@@ -294,30 +298,42 @@ create_role_response({ok, RoleId}, Specs, RD, Ctx) ->
     Doc = riak_cs_xml:to_xml(
             #create_role_response{role = Role,
                                   request_id = RequestId}),
-    RD1 =
-        wrq:set_resp_body(
-          Doc, wrq:set_resp_header("Content-Type", ?XML_TYPE, RD)),
-    {true, RD1, Ctx};
-create_role_response({error, Reason}, _, RD, Ctx) ->
+    {true, make_final_rd(Doc, RD), Ctx};
+make_create_role_response({error, Reason}, _, RD, Ctx) ->
     riak_cs_s3_response:api_error(Reason, RD, Ctx).
 
 
-get_role_response({ok, Role}, RD, Ctx) ->
+make_get_role_response({ok, Role}, RD, Ctx) ->
     RequestId = make_request_id(),
     Doc = riak_cs_xml:to_xml(
             #get_role_response{role = Role,
                                request_id = RequestId}),
-    Etag = etag(Doc),
-    RD1 = wrq:set_resp_body(
-            Doc,
-            wrq:set_resp_header(
-              "ETag", Etag,
-              wrq:set_resp_header(
-                "Content-Type", ?XML_TYPE, RD))),
-    {true, RD1, Ctx};
-get_role_response({error, not_found}, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
+    {true, make_final_rd(Doc, RD), Ctx};
+make_get_role_response({error, not_found}, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
     ResponseMod:api_error(no_such_role, RD, Ctx).
 
 
+make_list_roles_response({ok, Roles}, RD, Ctx) ->
+    RequestId = make_request_id(),
+    Doc = riak_cs_xml:to_xml(
+            #list_roles_response{roles = Roles,
+                                 request_id = RequestId}),
+    {true, make_final_rd(Doc, RD), Ctx};
+make_list_roles_response(Error, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
+    ResponseMod:api_error(Error, RD, Ctx).
+
+
+
+make_final_rd(Body, RD) ->
+    wrq:set_resp_body(
+      Body, wrq:set_resp_header(
+              "ETag", etag(Body),
+              wrq:set_resp_header(
+                "Content-Type", ?XML_TYPE, RD))).
+
 make_request_id() ->
     uuid:uuid_to_string(uuid:get_v4()).
+
+etag(Body) ->
+        riak_cs_utils:etag_from_binary(riak_cs_utils:md5(Body)).
+

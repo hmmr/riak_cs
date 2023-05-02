@@ -22,8 +22,7 @@
 
 -export([create_role/1,
          delete_role/1,
-         get_role/2,
-         list_roles/1
+         get_role/2
         ]).
 
 -include("riak_cs.hrl").
@@ -73,9 +72,6 @@ from_riakc_obj(Obj) ->
                            [Role?IAM_ROLE.role_id, Role?IAM_ROLE.role_name, N]),
             Role
     end.
-
-list_roles(_RcPid) ->
-    logger:debug("STUB list_roles", []).
 
 
 handle_response({ok, RoleId}) ->

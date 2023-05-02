@@ -23,7 +23,7 @@
 
 -export([list_buckets/1,
          list_objects/6,
-         list_roles/1
+         list_roles/2
         ]).
 
 -include("riak_cs.hrl").
@@ -31,14 +31,14 @@
 
 %% @doc Return a user's buckets.
 -spec list_buckets(rcs_user()) -> ?LBRESP{}.
-list_buckets(User=?RCS_USER{buckets=Buckets}) ->
-    ?LBRESP{user=User,
-            buckets=[Bucket || Bucket <- Buckets,
-                               Bucket?RCS_BUCKET.last_action /= deleted]}.
+list_buckets(User = ?RCS_USER{buckets=Buckets}) ->
+    ?LBRESP{user = User,
+            buckets = [Bucket || Bucket <- Buckets,
+                                 Bucket?RCS_BUCKET.last_action /= deleted]}.
 
 -type options() :: [{atom(), 'undefined' | binary()}].
 -spec list_objects(list_objects_req_type(), [string()], binary(), non_neg_integer(), options(), riak_client()) ->
-                          {ok, list_objects_response() | list_object_versions_response()} | {error, term()}.
+          {ok, list_objects_response() | list_object_versions_response()} | {error, term()}.
 list_objects(_, [], _, _, _, _) ->
     {error, no_such_bucket};
 list_objects(_, _UserBuckets, _Bucket, {error, _}=Error, _Options, _RcPid) ->
@@ -61,9 +61,16 @@ list_objects(RcPid, Request, CacheKey, UseCache) ->
                                                UseCache) of
         {ok, ListFSMPid} ->
             riak_cs_list_objects_utils:get_object_list(ListFSMPid);
-        {error, _}=Error ->
+        {error, _} = Error ->
             Error
     end.
 
-list_roles(RcPid) ->
-    riak_cs_roles:list_roles(RcPid).
+-spec list_roles(riak_client(), list_roles_request()) ->
+          {ok, list_roles_response()} | {error, term()}.
+list_roles(RcPid, Request) ->
+    case riak_cs_list_roles_fsm:start_link(RcPid, Request) of
+        {ok, ListFSMPid} ->
+            riak_cs_list_roles_utils:get_role_list(ListFSMPid);
+        {error, _} = Error ->
+            Error
+    end.
