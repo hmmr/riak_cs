@@ -86,11 +86,6 @@ rcs_process_specs() ->
         type => supervisor,
         modules => dynamic},
 
-      #{id => riak_cs_list_objects_ets_cache_sup,
-        start => {riak_cs_list_objects_ets_cache_sup, start_link, []},
-        type => supervisor,
-        modules => dynamic},
-
       #{id => riak_cs_get_fsm_sup,
         start => {riak_cs_get_fsm_sup, start_link, []},
         modules => dynamic},

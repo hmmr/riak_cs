@@ -36,29 +36,17 @@ list_buckets(User = ?RCS_USER{buckets=Buckets}) ->
             buckets = [Bucket || Bucket <- Buckets,
                                  Bucket?RCS_BUCKET.last_action /= deleted]}.
 
--type options() :: [{atom(), 'undefined' | binary()}].
--spec list_objects(list_objects_req_type(), [string()], binary(), non_neg_integer(), options(), riak_client()) ->
+-spec list_objects(list_objects_req_type(), [string()], binary(), non_neg_integer(), proplists:proplist(), riak_client()) ->
           {ok, list_objects_response() | list_object_versions_response()} | {error, term()}.
 list_objects(_, [], _, _, _, _) ->
     {error, no_such_bucket};
-list_objects(_, _UserBuckets, _Bucket, {error, _}=Error, _Options, _RcPid) ->
+list_objects(_, _UserBuckets, _Bucket, {error, _} = Error, _Options, _RcPid) ->
     Error;
 list_objects(ReqType, _UserBuckets, Bucket, MaxKeys, Options, RcPid) ->
-    Request = riak_cs_list_objects:new_request(ReqType,
-                                               Bucket,
-                                               MaxKeys,
-                                               Options),
-    BinPid = riak_cs_utils:pid_to_binary(self()),
-    CacheKey = << BinPid/binary, <<":">>/binary, Bucket/binary >>,
-    UseCache = riak_cs_list_objects_ets_cache:cache_enabled(),
-    list_objects(RcPid, Request, CacheKey, UseCache).
-
-list_objects(RcPid, Request, CacheKey, UseCache) ->
-    case riak_cs_list_objects_utils:start_link(RcPid,
-                                               self(),
-                                               Request,
-                                               CacheKey,
-                                               UseCache) of
+    Request = riak_cs_list_objects:new_request(
+                ReqType, Bucket, MaxKeys, Options),
+    case riak_cs_list_objects_utils:start_link(
+           RcPid, Request) of
         {ok, ListFSMPid} ->
             riak_cs_list_objects_utils:get_object_list(ListFSMPid);
         {error, _} = Error ->

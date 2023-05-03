@@ -462,16 +462,6 @@
   end}.
 
 
-%% == Bucket (List Objects) ==
-
-%% @doc Set this to false if you're running
-%% Riak nodes prior to version 1.4.0.
-{mapping, "fold_objects_for_list_keys", "riak_cs.fold_objects_for_list_keys", [
-  {default, on},
-  {datatype, flag},
-  hidden
-]}.
-
 %% == Rolling upgrade support ==
 
 %% @doc Riak CS version number. This is used to selectively

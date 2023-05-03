@@ -36,8 +36,6 @@
          enforce_multipart_part_size/0,
          gc_batch_size/0,
          get_env/3,
-         key_list_multiplier/0,
-         set_key_list_multiplier/1,
          md5_chunk_size/0,
          gc_paginated_indexes/0,
          policy_module/0,
@@ -137,9 +135,6 @@
 
 -spec warnings() -> ok.
 warnings() ->
-    ?MAYBE_WARN(not riak_cs_list_objects_utils:fold_objects_for_list_keys(),
-                "`fold_objects_for_list_keys` is set as false."
-                " This will be removed at next major version."),
     ?MAYBE_WARN(anonymous_user_creation(),
                 "`anonymous_user_creation` is set as true. Set this as false"
                 " when this CS nodes is populated as public service."),
@@ -209,14 +204,6 @@ enforce_multipart_part_size() ->
 -spec gc_batch_size() -> non_neg_integer().
 gc_batch_size() ->
     get_env(riak_cs, gc_batch_size, ?DEFAULT_GC_BATCH_SIZE).
-
--spec key_list_multiplier() -> float().
-key_list_multiplier() ->
-    get_env(riak_cs, key_list_multiplier, ?KEY_LIST_MULTIPLIER).
-
--spec set_key_list_multiplier(float()) -> 'ok'.
-set_key_list_multiplier(Multiplier) ->
-    application:set_env(riak_cs, key_list_multiplier, Multiplier).
 
 -spec policy_module() -> atom().
 policy_module() ->

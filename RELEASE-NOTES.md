@@ -1,3 +1,11 @@
+# Riak CS 3.2.0 Release Notes
+
+Released July 12, 2023.
+
+## Changed configuration items
+
+* removed `fold_objects_for_list_keys`
+
 # Riak CS 3.1.0 Release Notes
 
 Released March 15, 2023.
