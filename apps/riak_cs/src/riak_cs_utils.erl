@@ -231,13 +231,16 @@ reduce_keys_and_manifests(Acc, _) ->
 
 map_roles({error, notfound}, _, _) ->
     [];
-map_roles(Object, _, #{path_prefix := PathPrefix}) ->
-    Role = ?IAM_ROLE{path = Path} = binary_to_term(riak_object:get_contents(Object)),
-    case Path of
-        <<PathPrefix:(size(PathPrefix))/binary, _/binary>> ->
-            [Role];
+map_roles(Object, _2, Args) ->
+    #{path_prefix := PathPrefix} = Args,
+    [RoleBin|_] = riak_object:get_values(Object),
+    RoleObject = binary_to_term(RoleBin),
+    Role = ?IAM_ROLE{path = Path} = RoleObject,
+    case string:str(Path, PathPrefix) of
+        0 ->
+            [];
         _ ->
-            []
+            [Role]
     end.
 
 reduce_roles(Acc, _) ->

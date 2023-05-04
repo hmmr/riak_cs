@@ -28,6 +28,7 @@
 
 -include("riak_cs.hrl").
 -include("riak_cs_web.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% @doc Return a user's buckets.
 -spec list_buckets(rcs_user()) -> ?LBRESP{}.
@@ -56,19 +57,22 @@ list_objects(ReqType, _UserBuckets, Bucket, MaxKeys, Options, RcPid) ->
           {ok, list_roles_response()} | {error, term()}.
 list_roles(RcPid, #list_roles_request{path_prefix = PathPrefix,
                                       max_items = MaxItems,
-                                      marker = Marker,
-                                      request_id = RequestId}) ->
+                                      marker = Marker}) ->
     Arg = #{path_prefix => PathPrefix,
             max_items => MaxItems,
             marker => Marker},
-    case riakc_pb_socket:mapred_bucket(RcPid, ?IAM_BUCKET, mapred_query(Arg)) of
-        {ok, Roles} ->
-            {ok, #list_roles_response{request_id = RequestId,
-                                      roles = Roles,
-                                      is_truncated = false}};
+    {ok, MasterPbc} = riak_cs_riak_client:master_pbc(RcPid),
+    case riakc_pb_socket:mapred_bucket(MasterPbc, ?IAM_BUCKET, mapred_query(Arg)) of
+        {ok, Batches} ->
+            Roles = extract_roles(Batches, []),
+            {ok, Roles};
         {error, _} = ER ->
             ER
     end.
+extract_roles([], Q) ->
+    Q;
+extract_roles([{_N, RR}|Rest], Q) ->
+    extract_roles(Rest, Q ++ RR).
 
 mapred_query(Arg) ->
     [{map, {modfun, riak_cs_utils, map_roles},

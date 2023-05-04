@@ -86,7 +86,6 @@ init(Config) ->
 
 -spec service_available(#wm_reqdata{}, #rcs_iam_context{}) -> {boolean(), #wm_reqdata{}, #rcs_iam_context{}}.
 service_available(RD, Ctx = #rcs_iam_context{rc_pool = undefined}) ->
-    ?LOG_DEBUG("initingg", []),
     service_available(RD, Ctx#rcs_iam_context{rc_pool = request_pool});
 service_available(RD, Ctx = #rcs_iam_context{rc_pool = Pool}) ->
     case riak_cs_riak_client:checkout(Pool) of
@@ -98,13 +97,11 @@ service_available(RD, Ctx = #rcs_iam_context{rc_pool = Pool}) ->
 
 -spec malformed_request(#wm_reqdata{}, #rcs_iam_context{}) -> {boolean(), #wm_reqdata{}, #rcs_iam_context{}}.
 malformed_request(RD, Ctx) ->
-    ?LOG_DEBUG("initingg", []),
     {false, RD, Ctx}.
 
 
 -spec valid_entity_length(#wm_reqdata{}, #rcs_iam_context{}) -> {boolean(), #wm_reqdata{}, #rcs_iam_context{}}.
 valid_entity_length(RD, Ctx) ->
-    ?LOG_DEBUG("initingg", []),
     {true, RD, Ctx}.
 
 
@@ -112,7 +109,6 @@ valid_entity_length(RD, Ctx) ->
           {boolean() | {halt, non_neg_integer()}, #wm_reqdata{}, #rcs_iam_context{}}.
 forbidden(RD, Ctx=#rcs_iam_context{auth_module = AuthMod,
                                    riak_client = RcPid}) ->
-    ?LOG_DEBUG("initingg", []),
     AuthResult =
         case AuthMod:identify(RD, Ctx) of
             failed ->

@@ -494,7 +494,6 @@ maybe_update_context_with_acl_from_headers(RD,
                     DefaultAcl = riak_cs_acl_utils:default_acl(User?RCS_USER.display_name,
                                                                User?RCS_USER.canonical_id,
                                                                User?RCS_USER.key_id),
-                    ?LOG_DEBUG("ADDING DEFAULT ACL ~p", [DefaultAcl]),
                     {ok, Ctx#rcs_s3_context{acl=DefaultAcl}}
             end;
         {error, Reason} ->

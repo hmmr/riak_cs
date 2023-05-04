@@ -837,7 +837,7 @@ save_role(Role0 = ?IAM_ROLE{role_name = RoleName,
                             path = Path}, RiakPid) ->
     RoleId = ensure_unique_role_id(RiakPid),
 
-    ?LOG_INFO("Saving new role \"~s\" with id ~s", [RoleId]),
+    ?LOG_INFO("Saving new role \"~s\" with id ~s", [RoleName, RoleId]),
     Role1 = Role0?IAM_ROLE{role_id = RoleId},
 
     Indexes = [{?ROLE_NAME_INDEX, RoleName},
