@@ -271,22 +271,21 @@
 
 %% === roles ===
 
--record(create_role_response,
-        {
-         role :: role(),
-         request_id :: string()
-        }).
+-record(create_role_response, { role :: role()
+                              , request_id :: string()
+                              }
+       ).
 
--record(get_role_response,
-        {
-         role :: role(),
-         request_id :: string()
-        }).
+-record(get_role_response, { role :: role()
+                           , request_id :: string()
+                           }
+       ).
 
 
--record(list_roles_request, { max_keys = 1000 :: non_neg_integer()
+-record(list_roles_request, { max_items = 1000 :: non_neg_integer()
                             , path_prefix :: binary() | undefined
                             , marker :: binary() | undefined
+                            , request_id :: string()
                             }
        ).
 -type list_roles_request() :: #list_roles_request{}.
@@ -297,6 +296,7 @@
                              , marker :: binary() | undefined
                              , is_truncated :: boolean()
                              , roles :: [role()]
+                             , request_id :: string()
                              }
        ).
 

@@ -259,8 +259,12 @@ do_action("GetRole", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
 
 do_action("ListRoles", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
     PathPrefix = proplists:get_value("PathPrefix", Form),
+    MaxItems = proplists:get_value("MaxItems", Form),
+    Marker = proplists:get_value("Marker", Form),
     make_list_roles_response(
-      riak_cs_api:list_roles(RcPid, ?LRREQ{path_prefix = PathPrefix}),
+      riak_cs_api:list_roles(RcPid, ?LRREQ{path_prefix = PathPrefix,
+                                           max_items = MaxItems,
+                                           marker = Marker}),
       RD, Ctx);
 
 do_action(Unsupported, _Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->

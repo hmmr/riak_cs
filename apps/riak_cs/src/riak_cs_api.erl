@@ -45,8 +45,7 @@ list_objects(_, _UserBuckets, _Bucket, {error, _} = Error, _Options, _RcPid) ->
 list_objects(ReqType, _UserBuckets, Bucket, MaxKeys, Options, RcPid) ->
     Request = riak_cs_list_objects:new_request(
                 ReqType, Bucket, MaxKeys, Options),
-    case riak_cs_list_objects_utils:start_link(
-           RcPid, Request) of
+    case riak_cs_list_objects_fsm_v2:start_link(RcPid, Request) of
         {ok, ListFSMPid} ->
             riak_cs_list_objects_utils:get_object_list(ListFSMPid);
         {error, _} = Error ->
@@ -55,10 +54,24 @@ list_objects(ReqType, _UserBuckets, Bucket, MaxKeys, Options, RcPid) ->
 
 -spec list_roles(riak_client(), list_roles_request()) ->
           {ok, list_roles_response()} | {error, term()}.
-list_roles(RcPid, Request) ->
-    case riak_cs_list_roles_fsm:start_link(RcPid, Request) of
-        {ok, ListFSMPid} ->
-            riak_cs_list_roles_utils:get_role_list(ListFSMPid);
-        {error, _} = Error ->
-            Error
+list_roles(RcPid, #list_roles_request{path_prefix = PathPrefix,
+                                      max_items = MaxItems,
+                                      marker = Marker,
+                                      request_id = RequestId}) ->
+    Arg = #{path_prefix => PathPrefix,
+            max_items => MaxItems,
+            marker => Marker},
+    case riakc_pb_socket:mapred_bucket(RcPid, ?IAM_BUCKET, mapred_query(Arg)) of
+        {ok, Roles} ->
+            {ok, #list_roles_response{request_id = RequestId,
+                                      roles = Roles,
+                                      is_truncated = false}};
+        {error, _} = ER ->
+            ER
     end.
+
+mapred_query(Arg) ->
+    [{map, {modfun, riak_cs_utils, map_roles},
+      Arg, false},
+     {reduce, {modfun, riak_cs_utils, reduce_roles},
+      Arg, true}].
