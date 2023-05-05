@@ -54,7 +54,7 @@ list_objects(ReqType, _UserBuckets, Bucket, MaxKeys, Options, RcPid) ->
     end.
 
 -spec list_roles(riak_client(), list_roles_request()) ->
-          {ok, list_roles_response()} | {error, term()}.
+          {ok, maps:map()} | {error, term()}.
 list_roles(RcPid, #list_roles_request{path_prefix = PathPrefix,
                                       max_items = MaxItems,
                                       marker = Marker}) ->
@@ -65,7 +65,9 @@ list_roles(RcPid, #list_roles_request{path_prefix = PathPrefix,
     case riakc_pb_socket:mapred_bucket(MasterPbc, ?IAM_BUCKET, mapred_query(Arg)) of
         {ok, Batches} ->
             Roles = extract_roles(Batches, []),
-            {ok, Roles};
+            {ok, #{roles => Roles,
+                   marker => undefined,
+                   is_truncated => false}};
         {error, _} = ER ->
             ER
     end.

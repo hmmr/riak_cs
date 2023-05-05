@@ -241,27 +241,64 @@ finish_request(RD, Ctx=#rcs_iam_context{riak_client=RcPid}) ->
 %% Internal functions
 %% -------------------------------------------------------------------
 
-do_action("CreateRole", Form, RD, Ctx) ->
+do_action("CreateRole",
+          Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
     Specs = lists:foldl(fun role_fields_filter/2, [], Form),
-    make_create_role_response(
-      riak_cs_roles:create_role(Specs),
-      Specs, RD, Ctx);
+    case riak_cs_roles:create_role(Specs) of
+        {ok, RoleId} ->
+            Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:fromlist_role_v1(Specs),
+            Role = Role_?IAM_ROLE{assume_role_policy_document = binary_to_list(base64:decode(A)),
+                                  role_id = RoleId},
+            RequestId = make_request_id(),
+            logger:info("Created role \"~s\" on request_id ~s", [Role?IAM_ROLE.role_id, RequestId]),
+            Doc = riak_cs_xml:to_xml(
+                    #create_role_response{role = Role,
+                                          request_id = RequestId}),
+            {true, make_final_rd(Doc, RD), Ctx};
+        {error, Reason} ->
+            ResponseMod:api_error(Reason, RD, Ctx)
+    end;
 
-do_action("GetRole", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
+do_action("GetRole",
+          Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid,
+                                           response_module = ResponseMod}) ->
     RoleName = proplists:get_value("RoleName", Form),
-    make_get_role_response(
-      riak_cs_roles:get_role(RoleName, RcPid),
-      RD, Ctx);
+    case riak_cs_roles:get_role(RoleName, RcPid) of
+        {ok, Role} ->
+            RequestId = make_request_id(),
+            Doc = riak_cs_xml:to_xml(
+                    #get_role_response{role = Role,
+                                       request_id = RequestId}),
+            {true, make_final_rd(Doc, RD), Ctx};
+        {error, not_found} ->
+            ResponseMod:api_error(no_such_role, RD, Ctx);
+        {error, Reason} ->
+            ResponseMod:api_error(Reason, RD, Ctx)
+    end;
 
-do_action("ListRoles", Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid}) ->
+do_action("ListRoles",
+          Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid,
+                                           response_module = ResponseMod}) ->
     PathPrefix = proplists:get_value("PathPrefix", Form),
     MaxItems = proplists:get_value("MaxItems", Form),
     Marker = proplists:get_value("Marker", Form),
-    make_list_roles_response(
-      riak_cs_api:list_roles(RcPid, ?LRREQ{path_prefix = PathPrefix,
-                                           max_items = MaxItems,
-                                           marker = Marker}),
-      RD, Ctx);
+    case riak_cs_api:list_roles(
+           RcPid, ?LRREQ{path_prefix = PathPrefix,
+                         max_items = MaxItems,
+                         marker = Marker}) of
+        {ok, #{roles := Roles,
+               marker := NewMarker,
+               is_truncated := IsTruncated}} ->
+            RequestId = make_request_id(),
+            Doc = riak_cs_xml:to_xml(
+                    #list_roles_response{roles = Roles,
+                                         request_id = RequestId,
+                                         marker = NewMarker,
+                                         is_truncated = IsTruncated}),
+            {true, make_final_rd(Doc, RD), Ctx};
+        {error, Reason} ->
+            ResponseMod:api_error(Reason, RD, Ctx)
+    end;
 
 do_action(Unsupported, _Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
     logger:warning("IAM action ~s not supported yet; ignoring request", [Unsupported]),
@@ -287,41 +324,6 @@ role_fields_filter({ItemKey, ItemValue}, Acc) ->
         _ ->
             Acc
     end.
-
-
-make_create_role_response({ok, RoleId}, Specs, RD, Ctx) ->
-    Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:fromlist_role_v1(Specs),
-    Role = Role_?IAM_ROLE{assume_role_policy_document = binary_to_list(base64:decode(A)),
-                          role_id = RoleId},
-    RequestId = make_request_id(),
-    logger:info("Created role \"~s\" on request_id ~s", [Role?IAM_ROLE.role_id, RequestId]),
-    Doc = riak_cs_xml:to_xml(
-            #create_role_response{role = Role,
-                                  request_id = RequestId}),
-    {true, make_final_rd(Doc, RD), Ctx};
-make_create_role_response({error, Reason}, _, RD, Ctx) ->
-    riak_cs_s3_response:api_error(Reason, RD, Ctx).
-
-
-make_get_role_response({ok, Role}, RD, Ctx) ->
-    RequestId = make_request_id(),
-    Doc = riak_cs_xml:to_xml(
-            #get_role_response{role = Role,
-                               request_id = RequestId}),
-    {true, make_final_rd(Doc, RD), Ctx};
-make_get_role_response({error, not_found}, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
-    ResponseMod:api_error(no_such_role, RD, Ctx).
-
-
-make_list_roles_response({ok, Roles}, RD, Ctx) ->
-    RequestId = make_request_id(),
-    Doc = riak_cs_xml:to_xml(
-            #list_roles_response{roles = Roles,
-                                 request_id = RequestId}),
-    {true, make_final_rd(Doc, RD), Ctx};
-make_list_roles_response(Error, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
-    ResponseMod:api_error(Error, RD, Ctx).
-
 
 
 make_final_rd(Body, RD) ->

@@ -424,14 +424,21 @@ get_role_response_to_xml(#get_role_response{role = Role, request_id = RequestId}
                                    [{'xmlns', ?IAM_XMLNS}],
                                    C)], []).
 
-list_roles_response_to_xml(#list_roles_response{roles = RR, request_id = RequestId} = EE) ->
-    ListRolesResult = to_xml({roles, RR}),
+list_roles_response_to_xml(#list_roles_response{roles = RR,
+                                                request_id = RequestId,
+                                                is_truncated = IsTruncated,
+                                                marker = Marker}) ->
+    ListRolesResult =
+        lists:flatten(
+          [{'Roles', [role_node(R) || R <- RR]},
+           {'IsTruncated', [atom_to_list(IsTruncated)]},
+           [{'Marker', Marker} || Marker /= undefined]]),
     ResponseMetadata = make_internal_node('RequestId', [RequestId]),
-    C = [{'ListRolesResult', [ListRolesResult]},
+    C = [{'ListRolesResult', ListRolesResult},
          {'ResponseMetadata', [ResponseMetadata]}],
     export_xml([make_internal_node('ListRolesResponse',
                                    [{'xmlns', ?IAM_XMLNS}],
-                                   C)], []).
+                                   lists:flatten(C))], []).
 
 
 make_internal_node(Name, Content) ->

@@ -291,9 +291,7 @@
 -type list_roles_request() :: #list_roles_request{}.
 -define(LRREQ, #list_roles_request).
 
--record(list_roles_response, { max_keys :: non_neg_integer()
-                             , path_prefix :: binary() | undefined
-                             , marker :: binary() | undefined
+-record(list_roles_response, { marker :: binary() | undefined
                              , is_truncated :: boolean()
                              , roles :: [role()]
                              , request_id :: string()
