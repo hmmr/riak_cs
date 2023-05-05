@@ -109,6 +109,8 @@ to_xml(#create_role_response{} = R) ->
     create_role_response_to_xml(R);
 to_xml(#get_role_response{} = R) ->
     get_role_response_to_xml(R);
+to_xml(#delete_role_response{} = R) ->
+    delete_role_response_to_xml(R);
 to_xml(#list_roles_response{} = R) ->
     list_roles_response_to_xml(R).
 
@@ -421,6 +423,13 @@ get_role_response_to_xml(#get_role_response{role = Role, request_id = RequestId}
     C = [{'GetRoleResult', [GetRoleResult]},
          {'ResponseMetadata', [ResponseMetadata]}],
     export_xml([make_internal_node('GetRoleResponse',
+                                   [{'xmlns', ?IAM_XMLNS}],
+                                   C)], []).
+
+delete_role_response_to_xml(#delete_role_response{request_id = RequestId}) ->
+    ResponseMetadata = make_internal_node('RequestId', [RequestId]),
+    C = [{'ResponseMetadata', [ResponseMetadata]}],
+    export_xml([make_internal_node('DeleteRoleResponse',
                                    [{'xmlns', ?IAM_XMLNS}],
                                    C)], []).
 

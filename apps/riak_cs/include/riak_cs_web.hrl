@@ -281,6 +281,9 @@
                            }
        ).
 
+-record(delete_role_response, { request_id :: string()
+                              }
+       ).
 
 -record(list_roles_request, { max_items = 1000 :: non_neg_integer()
                             , path_prefix :: binary() | undefined

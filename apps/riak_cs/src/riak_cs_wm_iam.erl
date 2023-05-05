@@ -276,6 +276,22 @@ do_action("GetRole",
             ResponseMod:api_error(Reason, RD, Ctx)
     end;
 
+do_action("DeleteRole",
+          Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
+    RoleName = proplists:get_value("RoleName", Form),
+    case riak_cs_roles:delete_role(RoleName) of
+        ok ->
+            RequestId = make_request_id(),
+            logger:info("Deleted role \"~s\" on request_id ~s", [RoleName, RequestId]),
+            Doc = riak_cs_xml:to_xml(
+                    #delete_role_response{request_id = RequestId}),
+            {true, make_final_rd(Doc, RD), Ctx};
+        {error, not_found} ->
+            ResponseMod:api_error(no_such_role, RD, Ctx);
+        {error, Reason} ->
+            ?LOG_DEBUG("wat ~p", [Reason]),
+            ResponseMod:api_error(Reason, RD, Ctx)
+    end;
 do_action("ListRoles",
           Form, RD, Ctx = #rcs_iam_context{riak_client = RcPid,
                                            response_module = ResponseMod}) ->

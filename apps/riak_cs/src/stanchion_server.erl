@@ -151,10 +151,10 @@ create_role(RoleData) ->
                              infinity)).
 
 -spec delete_role(string()) -> ok | {error, term()}.
-delete_role(RoleId) ->
+delete_role(RoleName) ->
     ?MEASURE([role, delete],
              gen_server:call(?MODULE,
-                             {delete_role, RoleId},
+                             {delete_role, RoleName},
                              infinity)).
 
 stop(Pid) ->
@@ -236,10 +236,10 @@ handle_call({create_role, RoleData},
             State=#state{}) ->
     Result = ?TURNAROUND_TIME(stanchion_utils:create_role(RoleData)),
     {reply, Result, State};
-handle_call({delete_role, RoleId},
+handle_call({delete_role, RoleName},
             _From,
             State=#state{}) ->
-    Result = ?TURNAROUND_TIME(stanchion_utils:delete_role(RoleId)),
+    Result = ?TURNAROUND_TIME(stanchion_utils:delete_role(RoleName)),
     {reply, Result, State};
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
