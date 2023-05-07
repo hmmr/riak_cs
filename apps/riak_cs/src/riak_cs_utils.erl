@@ -234,8 +234,7 @@ map_roles({error, notfound}, _, _) ->
 map_roles(Object, _2, Args) ->
     #{path_prefix := PathPrefix} = Args,
     [RoleBin|_] = riak_object:get_values(Object),
-    RoleObject = binary_to_term(RoleBin),
-    Role = ?IAM_ROLE{path = Path} = RoleObject,
+    ?IAM_ROLE{path = Path} = Role = binary_to_term(RoleBin),
     case string:str(Path, PathPrefix) of
         0 ->
             [];

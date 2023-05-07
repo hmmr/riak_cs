@@ -40,6 +40,8 @@
          finish_request/2
         ]).
 
+-export([finish_tags/1,
+         add_tag/3]).
 -ignore_xref([init/1,
               service_available/2,
               malformed_request/2,
@@ -243,10 +245,13 @@ finish_request(RD, Ctx=#rcs_iam_context{riak_client=RcPid}) ->
 
 do_action("CreateRole",
           Form, RD, Ctx = #rcs_iam_context{response_module = ResponseMod}) ->
-    Specs = lists:foldl(fun role_fields_filter/2, [], Form),
+    Specs0 = lists:foldl(fun role_fields_filter/2, #{}, Form),
+    Specs = finish_tags(Specs0),
     case riak_cs_roles:create_role(Specs) of
         {ok, RoleId} ->
-            Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:fromlist_role_v1(Specs),
+            Role_ = ?IAM_ROLE{assume_role_policy_document = A} =
+                riak_cs_roles:exprec_detailed(
+                  riak_cs_roles:fix_permissions_boundary(Specs)),
             Role = Role_?IAM_ROLE{assume_role_policy_document = binary_to_list(base64:decode(A)),
                                   role_id = RoleId},
             RequestId = make_request_id(),
@@ -289,7 +294,7 @@ do_action("DeleteRole",
         {error, not_found} ->
             ResponseMod:api_error(no_such_role, RD, Ctx);
         {error, Reason} ->
-            ?LOG_DEBUG("wat ~p", [Reason]),
+            ?LOG_DEBUG("deal with me ~p", [Reason]),
             ResponseMod:api_error(Reason, RD, Ctx)
     end;
 do_action("ListRoles",
@@ -324,23 +329,52 @@ do_action(Unsupported, _Form, RD, Ctx = #rcs_iam_context{response_module = Respo
 role_fields_filter({ItemKey, ItemValue}, Acc) ->
     case ItemKey of
         "AssumeRolePolicyDocument" ->
-            [{assume_role_policy_document, base64:encode(ItemValue)} | Acc];
+            maps:put(assume_role_policy_document, base64:encode(ItemValue), Acc);
         "Description" ->
-            [{description, ItemValue} | Acc];
+            maps:put(description, ItemValue, Acc);
         "MaxSessionDuration" ->
-            [{max_session_duration, ItemValue} | Acc];
+            maps:put(max_session_duration, ItemValue, Acc);
         "Path" ->
-            [{path, ItemValue} | Acc];
+            maps:put(path, ItemValue, Acc);
         "PermissionsBoundary" ->
-            [{permissions_boundary, ItemValue} | Acc];
+            maps:put(permissions_boundary, ItemValue, Acc);
         "RoleName" ->
-            [{role_name, ItemValue} | Acc];
-        "Tags" ->
-            [{tags, ItemValue} | Acc];
-        _ ->
+            maps:put(role_name, ItemValue, Acc);
+        "Tags.member." ++ TagMember ->
+            add_tag(TagMember, ItemValue, Acc);
+        CommonParameter when CommonParameter == "Action";
+                             CommonParameter == "Version" ->
+            Acc;
+        Unrecognized ->
+            logger:warning("Unrecognized parameter for CreateRole: ~s", [Unrecognized]),
             Acc
     end.
 
+add_tag(A, V, Acc) ->
+    Tags0 = maps:get(tags, Acc, []),
+    Tags =
+        case string:tokens(A, ".") of
+            [N, "Key"] ->
+                lists:keystore({k, N}, 1, Tags0, {{k, N}, V});
+            [N, "Value"] ->
+                lists:keystore({v, N}, 1, Tags0, {{v, N}, V});
+            _ ->
+                logger:warning("Malformed Tags item", [])
+        end,
+    maps:put(tags, Tags, Acc).
+
+finish_tags(Acc) ->
+    Tags0 = lists:sort(maps:get(tags, Acc, [])),
+    Tags1 = lists:foldl(
+              fun({{k, N}, A}, Q) ->
+                      lists:keystore(A, 1, Q, {{swap_me, N}, A});
+                 ({{v, N}, A}, Q) ->
+                      {_, K} = lists:keyfind({swap_me, N}, 1, Q),
+                      lists:keyreplace({swap_me, N}, 1, Q, {K, A})
+              end,
+              [], Tags0),
+    Tags2 = [#{key => K, value => V} || {K, V} <- Tags1],
+    maps:put(tags, Tags2, Acc).
 
 make_final_rd(Body, RD) ->
     wrq:set_resp_body(

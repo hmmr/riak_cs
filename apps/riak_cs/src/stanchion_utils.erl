@@ -181,7 +181,9 @@ delete_bucket(Bucket, OwnerId) ->
 
 -spec create_role(proplists:proplist()) -> {ok, string()} | {error, riak_connect_failed() | term()}.
 create_role(Fields) ->
-    Role_ = ?IAM_ROLE{assume_role_policy_document = A} = exprec:frommap_role_v1(Fields),
+    Role_ = ?IAM_ROLE{assume_role_policy_document = A} =
+                riak_cs_roles:exprec_detailed(
+                  riak_cs_roles:fix_permissions_boundary(Fields)),
     Role = Role_?IAM_ROLE{assume_role_policy_document = base64:decode(A)},
     case riak_connection() of
         {ok, RiakPid} ->
@@ -193,6 +195,7 @@ create_role(Fields) ->
         {error, _} = Else ->
             Else
     end.
+
 
 %% @doc Return the credentials of the admin user
 -spec get_admin_creds() -> {ok, {string(), string()}} | {error, term()}.

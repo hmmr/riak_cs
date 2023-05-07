@@ -174,7 +174,7 @@
 
 
 -record(permissions_boundary, { permissions_boundary_arn :: arn()
-                              , permissions_boundary_type ::string()
+                              , permissions_boundary_type = "Policy" :: string()
                               }
 ).
 -type permissions_boundary() :: #permissions_boundary{}.

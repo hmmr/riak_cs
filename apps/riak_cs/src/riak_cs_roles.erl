@@ -22,7 +22,9 @@
 
 -export([create_role/1,
          delete_role/1,
-         get_role/2
+         get_role/2,
+         exprec_detailed/1,
+         fix_permissions_boundary/1
         ]).
 
 -include("riak_cs.hrl").
@@ -82,6 +84,35 @@ handle_response({error, {error_status, _, _, ErrorDoc}}) ->
     riak_cs_s3_response:error_response(ErrorDoc);
 handle_response({error, _} = Error) ->
     Error.
+
+
+-spec exprec_detailed(maps:map()) -> ?IAM_ROLE{}.
+exprec_detailed(Map) ->
+    Role0 = ?IAM_ROLE{permissions_boundary = PB0,
+                      role_last_used = LU0,
+                      tags = TT0} = exprec:frommap_role_v1(Map),
+    TT = [exprec:frommap_tag(T) || T <- TT0],
+    LU = case LU0 of
+             undefined ->
+                 undefined;
+             _ ->
+                 exprec:frommap_role_last_used(LU0)
+         end,
+    PB = case PB0 of
+             undefined ->
+                 undefined;
+             _ ->
+                 exprec:frommap_permissions_boundary(PB0)
+         end,
+    Role0?IAM_ROLE{permissions_boundary = PB,
+                   role_last_used = LU,
+                   tags = TT}.
+
+-spec fix_permissions_boundary(maps:map()) -> maps:map().
+fix_permissions_boundary(#{permissions_boundary := A} = Map) when not is_map(A) ->
+    maps:update(permissions_boundary, #{permissions_boundary_arn => A}, Map);
+fix_permissions_boundary(Map) ->
+    Map.
 
 
 -ifdef(TEST).

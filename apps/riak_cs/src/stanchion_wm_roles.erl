@@ -28,7 +28,8 @@
          create_path/2,
          post_is_create/2,
          content_types_accepted/2,
-         accept_json/2
+         accept_json/2,
+         delete_resource/2
         ]).
 
 -ignore_xref([init/1,
@@ -38,7 +39,8 @@
               create_path/2,
               post_is_create/2,
               content_types_accepted/2,
-              accept_json/2
+              accept_json/2,
+              delete_resource/2
              ]).
 
 -include("stanchion.hrl").
@@ -56,7 +58,7 @@ service_available(RD, Ctx) ->
 
 -spec allowed_methods(#wm_reqdata{}, #stanchion_context{}) -> {[atom()], #wm_reqdata{}, #stanchion_context{}}.
 allowed_methods(RD, Ctx) ->
-    {['POST'], RD, Ctx}.
+    {['POST', 'DELETE'], RD, Ctx}.
 
 -spec is_authorized(#wm_reqdata{}, #stanchion_context{}) -> {boolean(), #wm_reqdata{}, #stanchion_context{}}.
 is_authorized(RD, Ctx=#stanchion_context{auth_bypass=AuthBypass}) ->
@@ -93,6 +95,17 @@ accept_json(RD, Ctx) ->
     case stanchion_server:create_role(FF) of
         {ok, RoleId} ->
             {true, wrq:set_resp_body(RoleId, RD), Ctx};
+        {error, Reason} ->
+            stanchion_response:api_error(Reason, RD, Ctx)
+    end.
+
+-spec delete_resource(#wm_reqdata{}, #stanchion_context{}) ->
+          {boolean() | {halt, term()}, #wm_reqdata{}, #stanchion_context{}}.
+delete_resource(RD, Ctx = #stanchion_context{}) ->
+    RoleName = wrq:path(RD),
+    case stanchion_server:delete_role(RoleName) of
+        ok ->
+            {true, RD, Ctx};
         {error, Reason} ->
             stanchion_response:api_error(Reason, RD, Ctx)
     end.

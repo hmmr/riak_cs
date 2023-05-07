@@ -353,8 +353,7 @@ role_node(?IAM_ROLE{arn = Arn,
                     permissions_boundary = PermissionsBoundary,
                     role_id = RoleId,
                     role_last_used = RoleLastUsed,
-                    role_name = RoleName,
-                    tags = Tags}) ->
+                    role_name = RoleName}) ->
     C = lists:flatten(
           [[{'Arn', make_arn(Arn)} || Arn /= undefined],
            [{'AssumeRolePolicyDocument', AssumeRolePolicyDocument} || AssumeRolePolicyDocument /= undefined],
@@ -369,9 +368,7 @@ role_node(?IAM_ROLE{arn = Arn,
            [{'RoleLastUsed', [{'xmlns:xsi', ?XML_SCHEMA_INSTANCE},
                               {'xsi:type', "RoleLastUsed"}],
              make_role_last_used(RoleLastUsed)} || RoleLastUsed /= undefined],
-           [{'RoleName', RoleName} || RoleName /= undefined],
-           [{'Tags', make_tags(Tags)} || Tags /= undefined,
-                                         Tags /= []]
+           [{'RoleName', RoleName} || RoleName /= undefined]
           ]),
     {'Role', [make_external_node(K, V) || {K, V} <- C]}.
 
@@ -400,11 +397,11 @@ make_permission_boundary(?IAM_PERMISSION_BOUNDARY{permissions_boundary_arn = Per
         ],
     C.
 
-make_tags(TT) ->
-    [make_tag(T) || T <- TT].
-make_tag(?IAM_TAG{key = Key,
-                  value = Value}) ->
-    [{'Key', [Key]}, {'Value', [Value]}].
+%% make_tags(TT) ->
+%%     [make_tag(T) || T <- TT].
+%% make_tag(?IAM_TAG{key = Key,
+%%                   value = Value}) ->
+%%     {'Tag', [{'Key', [Key]}, {'Value', [Value]}]}.
 
 
 create_role_response_to_xml(#create_role_response{role = Role, request_id = RequestId}) ->
