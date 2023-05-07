@@ -1,7 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.  All Rights Reserved,
-%%               2021, 2022 TI Tokyo    All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -234,12 +234,17 @@ map_roles({error, notfound}, _, _) ->
 map_roles(Object, _2, Args) ->
     #{path_prefix := PathPrefix} = Args,
     [RoleBin|_] = riak_object:get_values(Object),
-    ?IAM_ROLE{path = Path} = Role = binary_to_term(RoleBin),
-    case string:str(Path, PathPrefix) of
-        0 ->
+    case RoleBin of
+        ?FREE_ROLE_MARKER ->
             [];
         _ ->
-            [Role]
+            ?IAM_ROLE{path = Path} = Role = binary_to_term(RoleBin),
+            case string:str(Path, PathPrefix) of
+                0 ->
+                    [];
+                _ ->
+                    [Role]
+            end
     end.
 
 reduce_roles(Acc, _) ->
