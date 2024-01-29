@@ -31,7 +31,11 @@
        {ref,"83c0ffda78a3c02ab7cc019e6d025492584c4acd"}},
   0},
  {<<"setup">>,{pkg,<<"setup">>,<<"2.1.0">>},1},
- {<<"uuid">>,{pkg,<<"uuid_erl">>,<<"2.0.7">>},0}]}.
+ {<<"uuid">>,{pkg,<<"uuid_erl">>,<<"2.0.7">>},0},
+ {<<"webmachine">>,
+  {git,"https://github.com/TI-Tokyo/webmachine.git",
+       {ref,"f173a243293054715e02c43f406cf2e8715f9655"}},
+  0}]}.
 [
 {pkg_hash,[
  {<<"bear">>, <<"430419C1126B477686CDE843E88BA0F2C7DC5CDF0881C677500074F704339A99">>},
